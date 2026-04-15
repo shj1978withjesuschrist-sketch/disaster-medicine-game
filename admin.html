@@ -227,10 +227,8 @@ tr:hover td{background:rgba(68,138,255,0.05)}
 </div>
 
 <script>
-const API = (() => {
-  const p = '__PORT_8000__';
-  return p.startsWith('__') ? 'http://localhost:8000' : p;
-})();
+// Render.com 백엔드 URL (배포 후 아래 URL을 실제 Render URL로 교체)
+const API = 'https://disaster-med-backend.onrender.com';
 
 let adminToken = '';
 let currentTab = 'overview';

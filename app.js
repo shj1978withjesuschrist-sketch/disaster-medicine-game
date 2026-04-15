@@ -300,10 +300,8 @@ const STORY_ACTS = [
 ];
 
 // ---- DATA TRACKING API ----
-const TRACKING_API = (() => {
-  const p = '__PORT_8000__';
-  return p.startsWith('__') ? 'http://localhost:8000' : p;
-})();
+// Render.com 백엔드 URL (배포 후 아래 URL을 실제 Render URL로 교체)
+const TRACKING_API = 'https://disaster-med-backend.onrender.com';
 
 const Tracker = {
   sessionId: null,
