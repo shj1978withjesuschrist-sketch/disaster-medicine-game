@@ -939,7 +939,7 @@ function renderIntro() {
           </svg>
         </div>
         <h1 class="game-title">재난의학<br><span class="em">서바이벌</span></h1>
-        <p class="game-subtitle">순천향대학교 재난의학센터<br>인터랙티브 RPG 교육 시뮬레이터 v5</p>
+        <p class="game-subtitle">신재난의학 아카데미 유한책임회사<br>인터랙티브 RPG 교육 시뮬레이터 v5</p>
       </div>
       <div class="qr-section" id="qr-section"></div>
       <div class="nick-input-wrap">
