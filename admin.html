@@ -202,6 +202,9 @@ tr:hover td{background:rgba(68,138,255,0.05)}
         <div class="tab" onclick="filterQuestions('ethics')">윤리</div>
         <div class="tab" onclick="filterQuestions('leadership')">리더십</div>
         <div class="tab" onclick="filterQuestions('teamwork')">팀워크</div>
+        <div class="tab" onclick="filterQuestions('cbrneAdv')">☣️ CBRNE 심화</div>
+        <div class="tab" onclick="filterQuestions('tactical')">🎯 전술의학</div>
+        <div class="tab" onclick="filterQuestions('ctm')">🛡️ 대테러의학</div>
       </div>
       <table id="question-analytics-table">
         <thead><tr><th>문항 ID</th><th>모드</th><th>응시 수</th><th>정답 수</th><th>정답률</th><th>평균 소요시간</th></tr></thead>
@@ -320,7 +323,16 @@ const MODE_NAMES = {
   ethics: {icon: '⚖️', name: '윤리적 딜레마', color: 'var(--cyan)'},
   leadership: {icon: '🎖️', name: '리더십 챌린지', color: 'var(--purple)'},
   teamwork: {icon: '🤝', name: '팀워크 미션', color: 'var(--orange)'},
-  boss: {icon: '👹', name: '보스 라운드', color: 'var(--red)'}
+  boss: {icon: '👹', name: '보스 라운드', color: 'var(--red)'},
+  cbrneAdv: {icon: '☣️', name: 'CBRNE 심화', color: 'var(--orange)'},
+  cbrneAdvScenario: {icon: '☣️', name: 'CBRNE 시나리오', color: 'var(--orange)'},
+  cbrneAdvBoss: {icon: '☣️', name: 'CBRNE 보스전', color: 'var(--orange)'},
+  tactical: {icon: '🎯', name: '전술의학', color: 'var(--green)'},
+  tacticalScenario: {icon: '🎯', name: '전술의학 시나리오', color: 'var(--green)'},
+  tacticalBoss: {icon: '🎯', name: '전술의학 보스전', color: 'var(--green)'},
+  ctm: {icon: '🛡️', name: '대테러의학', color: 'var(--red)'},
+  ctmScenario: {icon: '🛡️', name: '대테러 시나리오', color: 'var(--red)'},
+  ctmBoss: {icon: '🛡️', name: '대테러 보스전', color: 'var(--red)'}
 };
 
 function renderModeStats() {
