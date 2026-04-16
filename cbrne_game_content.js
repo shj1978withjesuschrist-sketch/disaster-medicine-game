@@ -9,7 +9,7 @@
 // SECTION 1: QUIZ QUESTIONS
 // ============================================
 
-const CBRNE_QUIZ_QUESTIONS = {
+const CBRNE_ADV_QUIZ_QUESTIONS = {
 
   // ==========================================
   // CHEMICAL (화학재난) — 28 questions
@@ -1658,13 +1658,13 @@ const CBRNE_QUIZ_QUESTIONS = {
     }
   ]
 
-}; // end CBRNE_QUIZ_QUESTIONS
+}; // end CBRNE_ADV_QUIZ_QUESTIONS
 
 // ============================================
 // SECTION 2: BOSS BATTLES
 // ============================================
 
-const CBRNE_BOSS_BATTLES = [
+const CBRNE_ADV_BOSS_BATTLES = [
   {
     id: "boss_chemical",
     name: "신경작용제 대마왕 사린",
@@ -1965,7 +1965,7 @@ const CBRNE_BOSS_BATTLES = [
 // SECTION 3: RPG SCENARIOS
 // ============================================
 
-const CBRNE_SCENARIOS = [
+const CBRNE_ADV_SCENARIOS = [
   {
     id: "scenario_chemical_subway",
     title: "서울 지하철 2호선 화학물질 유출 사건",
@@ -2881,7 +2881,7 @@ const CBRNE_SCENARIOS = [
 // SECTION 4: SKILL TREE
 // ============================================
 
-const CBRNE_SKILL_TREE = {
+const CBRNE_ADV_SKILL_TREE = {
 
   chemical: [
     {
@@ -3258,17 +3258,17 @@ const CBRNE_SKILL_TREE = {
     }
   ]
 
-}; // end CBRNE_SKILL_TREE
+}; // end CBRNE_ADV_SKILL_TREE
 
 // ============================================
 // SECTION 5: EXPORT
 // ============================================
 
 window.CBRNE_CONTENT = {
-  questions: CBRNE_QUIZ_QUESTIONS,
-  bossBattles: CBRNE_BOSS_BATTLES,
-  scenarios: CBRNE_SCENARIOS,
-  skillTree: CBRNE_SKILL_TREE,
+  questions: CBRNE_ADV_QUIZ_QUESTIONS,
+  bossBattles: CBRNE_ADV_BOSS_BATTLES,
+  scenarios: CBRNE_ADV_SCENARIOS,
+  skillTree: CBRNE_ADV_SKILL_TREE,
 
   // Metadata
   meta: {
@@ -3276,7 +3276,7 @@ window.CBRNE_CONTENT = {
     createdAt: "2025",
     source: "CIREcourse Lectures — Heejun Shin MD, MS, FIBODM",
     totalQuestions: (
-      Object.values(CBRNE_QUIZ_QUESTIONS).reduce((sum, cat) => sum + cat.length, 0)
+      Object.values(CBRNE_ADV_QUIZ_QUESTIONS).reduce((sum, cat) => sum + cat.length, 0)
     ),
     categories: ["chemical", "biological", "radiological", "nuclear", "explosive"],
     categoryLabels: {
@@ -3329,16 +3329,16 @@ window.CBRNE_CONTENT = {
 };
 
 // Also expose individual constants for backward compatibility
-window.CBRNE_QUIZ_QUESTIONS = CBRNE_QUIZ_QUESTIONS;
-window.CBRNE_BOSS_BATTLES = CBRNE_BOSS_BATTLES;
-window.CBRNE_SCENARIOS = CBRNE_SCENARIOS;
-window.CBRNE_SKILL_TREE = CBRNE_SKILL_TREE;
+window.CBRNE_ADV_QUIZ_QUESTIONS = CBRNE_ADV_QUIZ_QUESTIONS;
+window.CBRNE_ADV_BOSS_BATTLES = CBRNE_ADV_BOSS_BATTLES;
+window.CBRNE_ADV_SCENARIOS = CBRNE_ADV_SCENARIOS;
+window.CBRNE_ADV_SKILL_TREE = CBRNE_ADV_SKILL_TREE;
 
 console.log(
   "[CBRNE_CONTENT] Loaded successfully. " +
-  Object.values(CBRNE_QUIZ_QUESTIONS).reduce((sum, c) => sum + c.length, 0) +
+  Object.values(CBRNE_ADV_QUIZ_QUESTIONS).reduce((sum, c) => sum + c.length, 0) +
   " questions, " +
-  CBRNE_BOSS_BATTLES.length + " bosses, " +
-  CBRNE_SCENARIOS.length + " scenarios, " +
-  Object.keys(CBRNE_SKILL_TREE).length + " skill categories."
+  CBRNE_ADV_BOSS_BATTLES.length + " bosses, " +
+  CBRNE_ADV_SCENARIOS.length + " scenarios, " +
+  Object.keys(CBRNE_ADV_SKILL_TREE).length + " skill categories."
 );
