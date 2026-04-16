@@ -3229,3 +3229,193 @@ input {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ============================================
+   JRPG CAMPAIGN ENGINE STYLES
+   ============================================ */
+
+/* World Map */
+.world-map { position: relative; padding: 20px; min-height: 80vh; background: radial-gradient(ellipse at center, #1a1d2e 0%, #0d0f1a 100%); }
+.world-map-title { text-align: center; font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; background: linear-gradient(135deg, #ffd700, #ff8c00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; }
+.world-map-subtitle { text-align: center; color: #8b8fa3; font-size: 0.85rem; margin-bottom: 24px; }
+
+/* Campaign nodes on world map - like FF world map locations */
+.campaign-nodes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; max-width: 1000px; margin: 0 auto; }
+.campaign-node { background: linear-gradient(135deg, rgba(30,33,50,0.95), rgba(20,22,35,0.95)); border: 2px solid rgba(255,215,0,0.2); border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; }
+.campaign-node::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--node-color, #ffd700); }
+.campaign-node:hover { transform: translateY(-4px); border-color: rgba(255,215,0,0.5); box-shadow: 0 8px 32px rgba(255,215,0,0.15); }
+.campaign-node.locked { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.8); }
+.campaign-node.locked:hover { transform: none; }
+.campaign-node.completed { border-color: rgba(0,230,118,0.4); }
+.campaign-node.completed::after { content: '✅'; position: absolute; top: 12px; right: 12px; font-size: 1.2rem; }
+.campaign-node .node-icon { font-size: 2.5rem; margin-bottom: 8px; }
+.campaign-node .node-title { font-size: 1.1rem; font-weight: 700; color: #eef0f6; margin-bottom: 4px; }
+.campaign-node .node-subtitle { font-size: 0.8rem; color: #8b8fa3; margin-bottom: 12px; }
+.campaign-node .node-meta { display: flex; gap: 12px; font-size: 0.75rem; color: #6b7080; }
+.campaign-node .node-difficulty { color: #ffd700; }
+.campaign-node .node-progress { margin-top: 12px; }
+.campaign-node .progress-bar-bg { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+.campaign-node .progress-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+
+/* Role Selection - like FF character select */
+.role-select { padding: 20px; max-width: 900px; margin: 0 auto; }
+.role-select-title { text-align: center; font-size: 1.5rem; font-weight: 800; color: #ffd700; margin-bottom: 4px; }
+.role-select-subtitle { text-align: center; color: #8b8fa3; font-size: 0.85rem; margin-bottom: 24px; }
+.role-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.role-card { background: linear-gradient(135deg, #1e2132, #161928); border: 2px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.3s; text-align: center; }
+.role-card:hover { border-color: rgba(255,215,0,0.4); transform: translateY(-2px); }
+.role-card.selected { border-color: #ffd700; background: linear-gradient(135deg, #2a2d45, #1e2138); box-shadow: 0 0 20px rgba(255,215,0,0.15); }
+.role-card .role-emoji { font-size: 2.5rem; margin-bottom: 8px; }
+.role-card .role-name { font-size: 1rem; font-weight: 700; color: #eef0f6; }
+.role-card .role-desc { font-size: 0.75rem; color: #8b8fa3; margin-top: 4px; }
+.role-card .role-special { font-size: 0.7rem; color: #ffd700; margin-top: 8px; font-style: italic; }
+.role-confirm-btn { display: block; margin: 20px auto 0; padding: 14px 48px; background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; font-size: 1rem; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s; }
+.role-confirm-btn:hover { transform: scale(1.05); }
+.role-confirm-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+/* Chapter Map - like Zelda dungeon map */
+.chapter-map { padding: 20px; max-width: 800px; margin: 0 auto; }
+.chapter-map-header { text-align: center; margin-bottom: 24px; }
+.chapter-map-header .campaign-icon { font-size: 2rem; }
+.chapter-map-header h2 { font-size: 1.3rem; color: #ffd700; margin: 4px 0; }
+.chapter-path { position: relative; }
+.chapter-node { display: flex; align-items: center; gap: 16px; padding: 16px; margin-bottom: 4px; border-radius: 12px; cursor: pointer; transition: all 0.3s; background: rgba(30,33,50,0.5); border: 1px solid transparent; }
+.chapter-node:hover:not(.locked) { background: rgba(40,43,65,0.8); border-color: rgba(255,215,0,0.3); }
+.chapter-node.active { background: rgba(255,215,0,0.08); border-color: rgba(255,215,0,0.4); }
+.chapter-node.completed { opacity: 0.7; }
+.chapter-node.completed .ch-status { color: #00e676; }
+.chapter-node.locked { opacity: 0.35; cursor: not-allowed; }
+.chapter-node .ch-number { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+.chapter-node.completed .ch-number { background: rgba(0,230,118,0.2); color: #00e676; }
+.chapter-node.active .ch-number { background: rgba(255,215,0,0.2); color: #ffd700; }
+.chapter-node.locked .ch-number { background: rgba(255,255,255,0.05); color: #555; }
+.chapter-node .ch-info { flex: 1; }
+.chapter-node .ch-title { font-weight: 600; font-size: 0.95rem; }
+.chapter-node .ch-subtitle { font-size: 0.75rem; color: #8b8fa3; }
+.chapter-node .ch-status { font-size: 0.75rem; color: #8b8fa3; text-align: right; }
+
+/* Cinematic / Cutscene - like FF cutscenes */
+.cinematic { padding: 20px; max-width: 700px; margin: 0 auto; animation: fadeIn 1s ease; }
+.cinematic-chapter-tag { text-align: center; font-size: 0.75rem; color: #ffd700; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px; }
+.cinematic-title { text-align: center; font-size: 1.4rem; font-weight: 800; color: #eef0f6; margin-bottom: 24px; }
+.cinematic-text { background: rgba(20,22,35,0.8); border: 1px solid rgba(255,215,0,0.15); border-radius: 12px; padding: 24px; font-size: 0.95rem; line-height: 1.8; color: #c8cad8; white-space: pre-line; margin-bottom: 16px; }
+.cinematic-dialogue { background: rgba(255,215,0,0.05); border-left: 3px solid #ffd700; border-radius: 0 8px 8px 0; padding: 16px 20px; margin-bottom: 16px; }
+.cinematic-dialogue .speaker { font-size: 0.8rem; color: #ffd700; font-weight: 600; margin-bottom: 4px; }
+.cinematic-dialogue .speech { font-size: 0.9rem; color: #c8cad8; line-height: 1.6; font-style: italic; }
+.cinematic-continue { display: block; margin: 16px auto 0; padding: 12px 32px; background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); color: #ffd700; border-radius: 8px; cursor: pointer; font-size: 0.9rem; transition: all 0.3s; }
+.cinematic-continue:hover { background: rgba(255,215,0,0.2); }
+
+/* Briefing Panel */
+.briefing { padding: 20px; max-width: 700px; margin: 0 auto; }
+.briefing-card { background: rgba(20,22,35,0.9); border: 1px solid rgba(68,138,255,0.3); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.briefing-card h3 { font-size: 0.85rem; color: #448aff; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.briefing-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; }
+.briefing-item .label { color: #8b8fa3; }
+.briefing-item .value { color: #eef0f6; font-weight: 600; }
+.briefing-list { list-style: none; }
+.briefing-list li { padding: 4px 0; font-size: 0.85rem; color: #c8cad8; }
+.briefing-list li::before { content: '⚠️ '; }
+.briefing-start-btn { display: block; width: 100%; margin-top: 16px; padding: 14px; background: linear-gradient(135deg, #ff3b5c, #ff1744); color: #fff; font-size: 1rem; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s; }
+.briefing-start-btn:hover { transform: scale(1.02); }
+
+/* Turn-Based Battle UI - like FF combat */
+.battle-screen { padding: 16px; max-width: 750px; margin: 0 auto; }
+.battle-enemy { text-align: center; margin-bottom: 16px; }
+.battle-enemy .enemy-sprite { font-size: 4rem; animation: enemyFloat 3s ease-in-out infinite; }
+@keyframes enemyFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.battle-enemy .enemy-name { font-size: 1rem; font-weight: 700; color: #ff3b5c; margin-top: 4px; }
+.battle-hp-bar { background: rgba(255,255,255,0.1); border-radius: 4px; height: 8px; overflow: hidden; margin: 8px auto; max-width: 300px; }
+.battle-hp-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+.battle-hp-fill.enemy { background: linear-gradient(90deg, #ff3b5c, #ff1744); }
+.battle-hp-fill.player { background: linear-gradient(90deg, #00e676, #69f0ae); }
+
+/* Battle Question Area */
+.battle-question { background: rgba(20,22,35,0.95); border: 1px solid rgba(255,215,0,0.2); border-radius: 12px; padding: 20px; margin-bottom: 12px; }
+.battle-question .q-category { font-size: 0.7rem; color: #ffd700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+.battle-question .q-text { font-size: 0.95rem; color: #eef0f6; line-height: 1.6; }
+
+/* Battle Options - styled like FF menu */
+.battle-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.battle-option { background: rgba(30,33,50,0.9); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px 16px; cursor: pointer; transition: all 0.2s; text-align: left; font-size: 0.85rem; color: #c8cad8; display: flex; align-items: center; gap: 8px; }
+.battle-option:hover { border-color: rgba(255,215,0,0.5); background: rgba(255,215,0,0.08); color: #eef0f6; }
+.battle-option .opt-label { color: #ffd700; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+.battle-option.correct { border-color: #00e676; background: rgba(0,230,118,0.1); }
+.battle-option.wrong { border-color: #ff3b5c; background: rgba(255,59,92,0.1); }
+.battle-option:disabled { cursor: default; opacity: 0.6; }
+
+/* Player HUD - bottom bar like FF */
+.player-hud { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(10,12,20,0.98), rgba(10,12,20,0.9)); border-top: 1px solid rgba(255,215,0,0.2); padding: 12px 20px; display: flex; align-items: center; gap: 16px; z-index: 100; }
+.hud-avatar { font-size: 1.5rem; }
+.hud-info { flex: 1; }
+.hud-name { font-size: 0.85rem; font-weight: 700; color: #eef0f6; }
+.hud-title { font-size: 0.65rem; color: #ffd700; }
+.hud-bars { flex: 2; }
+.hud-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.hud-bar .bar-label { font-size: 0.65rem; color: #8b8fa3; width: 24px; }
+.hud-bar .bar-track { flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.hud-bar .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.hud-bar .bar-fill.hp { background: linear-gradient(90deg, #ff3b5c, #69f0ae); }
+.hud-bar .bar-fill.xp { background: linear-gradient(90deg, #448aff, #b388ff); }
+.hud-bar .bar-value { font-size: 0.65rem; color: #eef0f6; width: 50px; text-align: right; }
+.hud-items { display: flex; gap: 6px; }
+.hud-item { width: 32px; height: 32px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
+.hud-item:hover { border-color: #ffd700; background: rgba(255,215,0,0.1); }
+.hud-item.empty { opacity: 0.3; cursor: default; }
+.hud-level { text-align: center; }
+.hud-level .lv-num { font-size: 1.2rem; font-weight: 800; color: #ffd700; }
+.hud-level .lv-label { font-size: 0.6rem; color: #8b8fa3; }
+
+/* Battle Result / Chapter Complete */
+.chapter-result { padding: 20px; max-width: 600px; margin: 0 auto; text-align: center; }
+.chapter-result .result-icon { font-size: 3rem; margin-bottom: 8px; }
+.chapter-result h2 { font-size: 1.3rem; color: #ffd700; margin-bottom: 4px; }
+.chapter-result .result-narrative { background: rgba(20,22,35,0.8); border-radius: 12px; padding: 20px; margin: 16px 0; font-size: 0.9rem; color: #c8cad8; line-height: 1.7; white-space: pre-line; text-align: left; }
+.result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+.result-stat { background: rgba(30,33,50,0.8); border-radius: 8px; padding: 12px; }
+.result-stat .rs-value { font-size: 1.3rem; font-weight: 700; }
+.result-stat .rs-label { font-size: 0.7rem; color: #8b8fa3; margin-top: 2px; }
+.result-rewards { background: rgba(255,215,0,0.05); border: 1px solid rgba(255,215,0,0.2); border-radius: 12px; padding: 16px; margin: 16px 0; }
+.result-rewards h3 { font-size: 0.85rem; color: #ffd700; margin-bottom: 8px; }
+.reward-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.85rem; color: #c8cad8; }
+.level-up-banner { background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,140,0,0.1)); border: 1px solid rgba(255,215,0,0.4); border-radius: 12px; padding: 16px; margin: 16px 0; animation: levelUpGlow 2s ease-in-out infinite; }
+@keyframes levelUpGlow { 0%,100% { box-shadow: 0 0 10px rgba(255,215,0,0.1); } 50% { box-shadow: 0 0 25px rgba(255,215,0,0.3); } }
+.level-up-banner h3 { color: #ffd700; font-size: 1rem; margin-bottom: 4px; }
+.level-up-banner p { color: #c8cad8; font-size: 0.85rem; }
+
+/* Campaign Complete / Credits */
+.campaign-complete { padding: 40px 20px; text-align: center; max-width: 600px; margin: 0 auto; }
+.campaign-complete .trophy { font-size: 4rem; margin-bottom: 16px; animation: trophyBounce 1s ease; }
+@keyframes trophyBounce { 0% { transform: scale(0); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+.campaign-complete h1 { font-size: 1.5rem; background: linear-gradient(135deg, #ffd700, #ff8c00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+.campaign-complete .final-title { font-size: 1.1rem; color: #ffd700; margin-bottom: 24px; }
+
+/* Inventory Panel */
+.inventory-panel { background: rgba(20,22,35,0.95); border: 1px solid rgba(255,215,0,0.2); border-radius: 12px; padding: 16px; margin: 12px 0; }
+.inventory-panel h3 { font-size: 0.85rem; color: #ffd700; margin-bottom: 8px; }
+.inventory-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.inv-slot { aspect-ratio: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+.inv-slot:hover:not(.empty) { border-color: #ffd700; background: rgba(255,215,0,0.08); }
+.inv-slot .item-icon { font-size: 1.3rem; }
+.inv-slot .item-count { font-size: 0.6rem; color: #ffd700; }
+
+/* Damage/Heal animations */
+@keyframes damageFlash { 0% { background: transparent; } 50% { background: rgba(255,59,92,0.2); } 100% { background: transparent; } }
+@keyframes healFlash { 0% { background: transparent; } 50% { background: rgba(0,230,118,0.2); } 100% { background: transparent; } }
+.damage-flash { animation: damageFlash 0.5s ease; }
+.heal-flash { animation: healFlash 0.5s ease; }
+
+/* Battle attack animations */
+@keyframes playerAttack { 0% { transform: translateX(0); } 30% { transform: translateX(30px); } 100% { transform: translateX(0); } }
+@keyframes enemyHit { 0% { transform: translateX(0); } 20% { transform: translateX(-15px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-5px); } 100% { transform: translateX(0); } }
+@keyframes enemyAttack { 0% { transform: translateY(0) scale(1); } 50% { transform: translateY(20px) scale(1.1); } 100% { transform: translateY(0) scale(1); } }
+
+/* Fade animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Back button */
+.back-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #8b8fa3; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; margin-bottom: 16px; }
+.back-btn:hover { border-color: rgba(255,215,0,0.3); color: #eef0f6; }
+
+/* Campaign screen padding for player HUD */
+.campaign-screen-wrap { padding-bottom: 80px; overflow-y: auto; height: 100dvh; }

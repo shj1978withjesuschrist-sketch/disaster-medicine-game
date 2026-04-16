@@ -118,7 +118,29 @@ tr:hover td{background:rgba(68,138,255,0.05)}
   .stat-grid{grid-template-columns:1fr}
   .tabs{flex-wrap:wrap}
 }
+.research-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.research-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.research-card h3 { font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.stat-table { width: 100%; font-size: 0.8rem; }
+.stat-table th { text-align: left; color: var(--text2); padding: 6px 8px; font-size: 0.7rem; text-transform: uppercase; }
+.stat-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.stat-table td.num { text-align: right; font-family: 'JetBrains Mono', monospace; }
+.alpha-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+.alpha-good { background: rgba(0,230,118,0.15); color: var(--green); }
+.alpha-acceptable { background: rgba(255,202,40,0.15); color: var(--yellow); }
+.alpha-poor { background: rgba(255,59,92,0.15); color: var(--red); }
+.chart-container { position: relative; height: 280px; margin: 12px 0; }
+.export-btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.export-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); color: var(--text); cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; }
+.export-btn:hover { border-color: var(--accent); background: rgba(68,138,255,0.1); }
+.correlation-matrix { overflow-x: auto; }
+.corr-cell { text-align: center; min-width: 60px; }
+.item-good { color: var(--green); }
+.item-revise { color: var(--yellow); }
+.item-poor { color: var(--red); }
+.significance { font-size: 0.7rem; vertical-align: super; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -154,6 +176,7 @@ tr:hover td{background:rgba(68,138,255,0.05)}
     <div class="tab" data-tab="sessions" onclick="switchTab('sessions')">👥 교육생 목록</div>
     <div class="tab" data-tab="questions" onclick="switchTab('questions')">❓ 문항 분석</div>
     <div class="tab" data-tab="modes" onclick="switchTab('modes')">🎮 모드별 분석</div>
+    <div class="tab" data-tab="research" onclick="switchTab('research')">📊 연구 분석</div>
   </div>
 
   <!-- Tab Content -->
@@ -217,6 +240,117 @@ tr:hover td{background:rgba(68,138,255,0.05)}
     <div class="section">
       <h2><span class="icon">🎮</span> 모드별 상세 분석</h2>
       <div class="mode-stat-grid" id="mode-detail-stats"></div>
+    </div>
+  </div>
+
+  <div id="tab-research" class="tab-content" style="display:none">
+    <!-- Loading indicator -->
+    <div id="research-loading" style="text-align:center;padding:40px;color:var(--text2)">
+      <div style="font-size:2rem;margin-bottom:12px">⏳</div>
+      <p>통계 분석 실행 중...</p>
+    </div>
+    
+    <div id="research-content" style="display:none">
+      <!-- Export buttons -->
+      <div class="section">
+        <h2><span class="icon">📥</span> 데이터 내보내기</h2>
+        <div class="export-btn-group">
+          <button class="export-btn" onclick="exportResearchJSON()">📋 전체 분석 결과 (JSON)</button>
+          <button class="export-btn" onclick="exportRawData()">🗃️ Raw Data (SPSS/R용)</button>
+          <button class="export-btn" onclick="exportPaperTables()">📝 논문용 표 (HTML)</button>
+        </div>
+      </div>
+
+      <!-- Section 1: Descriptive Statistics -->
+      <div class="section">
+        <h2><span class="icon">📐</span> 기술통계 (Descriptive Statistics)</h2>
+        <div style="overflow-x:auto" id="descriptive-table-container"></div>
+      </div>
+
+      <!-- Section 2: Score Distribution Charts -->
+      <div class="section">
+        <h2><span class="icon">📊</span> 점수 분포 (Score Distribution)</h2>
+        <div class="research-grid">
+          <div class="research-card">
+            <h3>📈 전체 점수 분포</h3>
+            <div class="chart-container"><canvas id="score-dist-chart"></canvas></div>
+          </div>
+          <div class="research-card">
+            <h3>🎯 모드별 평균 비교</h3>
+            <div class="chart-container"><canvas id="mode-comparison-chart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Reliability -->
+      <div class="section">
+        <h2><span class="icon">🔬</span> 신뢰도 분석 (Reliability Analysis)</h2>
+        <div id="reliability-container"></div>
+      </div>
+
+      <!-- Section 4: Item Analysis -->
+      <div class="section">
+        <h2><span class="icon">🔎</span> 문항 분석 (Item Analysis)</h2>
+        <p style="color:var(--text2);font-size:0.85rem;margin-bottom:12px">난이도(p), 변별도(D), 점이중상관(rpb) — 최소 5회 이상 응시된 문항</p>
+        <div style="overflow-x:auto" id="item-analysis-container"></div>
+      </div>
+
+      <!-- Section 5: Correlation Matrix -->
+      <div class="section">
+        <h2><span class="icon">🔗</span> 상관분석 (Correlation Matrix)</h2>
+        <div class="research-grid">
+          <div class="research-card">
+            <h3>모드 간 점수 상관</h3>
+            <div class="correlation-matrix" id="correlation-container"></div>
+          </div>
+          <div class="research-card">
+            <h3>📉 시간-정확도 관계</h3>
+            <div class="chart-container"><canvas id="time-accuracy-chart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 6: Comparative Analysis -->
+      <div class="section">
+        <h2><span class="icon">⚖️</span> 비교분석 (Comparative Analysis)</h2>
+        <div id="comparative-container"></div>
+      </div>
+
+      <!-- Section 7: Learning Curve -->
+      <div class="section">
+        <h2><span class="icon">📈</span> 학습 곡선 (Learning Curve Analysis)</h2>
+        <div class="research-grid">
+          <div class="research-card">
+            <h3>세션별 점수 추이</h3>
+            <div class="chart-container"><canvas id="learning-curve-chart"></canvas></div>
+          </div>
+          <div class="research-card">
+            <h3>⏱️ 응답 시간 분포</h3>
+            <div class="chart-container"><canvas id="time-dist-chart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 8: Performance Categories -->
+      <div class="section">
+        <h2><span class="icon">🏅</span> 성취도 분류 (Performance Categories)</h2>
+        <div class="research-grid">
+          <div class="research-card">
+            <h3>전체 성취도 분포</h3>
+            <div class="chart-container"><canvas id="performance-pie-chart"></canvas></div>
+          </div>
+          <div class="research-card" id="performance-table-container">
+            <h3>모드별 성취도 분류표</h3>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 9: Paper-Ready Summary -->
+      <div class="section">
+        <h2><span class="icon">📝</span> 논문용 요약표 (Paper-Ready Tables)</h2>
+        <p style="color:var(--text2);font-size:0.85rem;margin-bottom:12px">아래 표를 그대로 논문에 삽입할 수 있습니다. "논문용 표 내보내기" 버튼으로 HTML 파일을 다운로드하세요.</p>
+        <div id="paper-tables-container"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -522,6 +656,7 @@ function switchTab(tab) {
   
   if (tab === 'sessions') loadSessions();
   if (tab === 'questions') filterQuestions('');
+  if (tab === 'research') loadResearchAnalysis();
 }
 
 // === EXPORT & CLEAR ===
@@ -541,6 +676,884 @@ async function clearData() {
   if (!confirm('정말로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
   await fetch(`${API}/api/admin/sessions/clear`, {method: 'DELETE', headers: authHeaders()});
   refreshDashboard();
+}
+
+// === RESEARCH ANALYSIS ===
+let researchData = null;
+let researchCharts = {};
+
+// Set Chart.js dark theme defaults
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.color = '#8b8fa3';
+  Chart.defaults.borderColor = '#2e3142';
+  Chart.defaults.font.family = "'Pretendard','Noto Sans KR',system-ui,sans-serif";
+}
+
+async function loadResearchAnalysis() {
+  // Set dark defaults each time (in case Chart.js loaded after first call)
+  if (typeof Chart !== 'undefined') {
+    Chart.defaults.color = '#8b8fa3';
+    Chart.defaults.borderColor = '#2e3142';
+  }
+  document.getElementById('research-loading').style.display = 'block';
+  document.getElementById('research-content').style.display = 'none';
+
+  try {
+    const res = await fetch(`${API}/api/admin/research/analysis`, {headers: authHeaders()});
+    if (!res.ok) throw new Error('분석 실패 (' + res.status + ')');
+    researchData = await res.json();
+
+    document.getElementById('research-loading').style.display = 'none';
+    document.getElementById('research-content').style.display = 'block';
+
+    renderDescriptiveStats();
+    renderScoreDistChart();
+    renderModeComparisonChart();
+    renderReliability();
+    renderItemAnalysis();
+    renderCorrelationMatrix();
+    renderTimeAccuracyChart();
+    renderComparativeAnalysis();
+    renderLearningCurve();
+    renderTimeDistChart();
+    renderPerformanceCategories();
+    renderPaperTables();
+  } catch(e) {
+    document.getElementById('research-loading').innerHTML =
+      '<p style="color:var(--red)">분석 데이터를 불러올 수 없습니다: ' + e.message + '</p>';
+  }
+}
+
+function destroyChart(id) {
+  if (researchCharts[id]) {
+    researchCharts[id].destroy();
+    delete researchCharts[id];
+  }
+}
+
+function fmt(v, decimals) {
+  if (v === null || v === undefined || isNaN(v)) return '-';
+  return Number(v).toFixed(decimals !== undefined ? decimals : 2);
+}
+
+// --- 1. Descriptive Statistics ---
+function renderDescriptiveStats() {
+  const container = document.getElementById('descriptive-table-container');
+  const d = researchData && researchData.descriptive;
+  if (!d) { container.innerHTML = '<p style="color:var(--text2)">데이터 부족</p>'; return; }
+
+  const rows = [];
+  // Overall row
+  if (d.overall) {
+    const o = d.overall;
+    rows.push(buildDescRow('전체', o));
+  }
+  // By mode rows
+  if (d.by_mode) {
+    Object.entries(d.by_mode).forEach(([mode, stats]) => {
+      const info = MODE_NAMES[mode] || {icon:'\ud83c\udfaf', name: mode};
+      rows.push(buildDescRow(info.icon + ' ' + info.name, stats));
+    });
+  }
+
+  if (!rows.length) { container.innerHTML = '<p style="color:var(--text2)">데이터 부족</p>'; return; }
+
+  container.innerHTML = `
+    <table class="stat-table">
+      <thead><tr>
+        <th>모드</th><th class="num">N</th><th class="num">M</th><th class="num">SD</th>
+        <th class="num">중앙값</th><th class="num">최솏값</th><th class="num">최댓값</th>
+        <th class="num">왜도</th><th class="num">첨도</th><th>95% CI</th>
+      </tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
+}
+
+function buildDescRow(label, s) {
+  if (!s) return '';
+  const ci = s.ci_95 ? `[${fmt(s.ci_95[0])}, ${fmt(s.ci_95[1])}]` : '-';
+  return `<tr>
+    <td><strong>${label}</strong></td>
+    <td class="num">${s.n || '-'}</td>
+    <td class="num">${fmt(s.mean)}</td>
+    <td class="num">${fmt(s.sd)}</td>
+    <td class="num">${fmt(s.median)}</td>
+    <td class="num">${fmt(s.min)}</td>
+    <td class="num">${fmt(s.max)}</td>
+    <td class="num">${fmt(s.skewness)}</td>
+    <td class="num">${fmt(s.kurtosis)}</td>
+    <td class="num">${ci}</td>
+  </tr>`;
+}
+
+// --- 2. Score Distribution Chart ---
+function renderScoreDistChart() {
+  destroyChart('scoreDist');
+  const canvas = document.getElementById('score-dist-chart');
+  const d = researchData && researchData.score_distribution && researchData.score_distribution.overall;
+  if (!d || !d.bins || !d.counts) {
+    canvas.parentElement.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">데이터 부족</p>';
+    return;
+  }
+  researchCharts['scoreDist'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: d.bins.map(b => b + '점'),
+      datasets: [{
+        label: '응시자 수',
+        data: d.counts,
+        backgroundColor: 'rgba(68,138,255,0.6)',
+        borderColor: '#448aff',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3' } },
+        y: { grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+// --- 3. Mode Comparison Chart ---
+function renderModeComparisonChart() {
+  destroyChart('modeComp');
+  const canvas = document.getElementById('mode-comparison-chart');
+  const d = researchData && researchData.descriptive && researchData.descriptive.by_mode;
+  if (!d || !Object.keys(d).length) {
+    canvas.parentElement.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">데이터 부족</p>';
+    return;
+  }
+  const entries = Object.entries(d).filter(([,s]) => s && s.mean !== null && s.mean !== undefined);
+  const labels = entries.map(([mode]) => {
+    const info = MODE_NAMES[mode] || {name: mode};
+    return info.name;
+  });
+  const means = entries.map(([,s]) => s.mean);
+  const cis = entries.map(([,s]) => s.ci_95 ? (s.ci_95[1] - s.ci_95[0]) / 2 : 0);
+
+  researchCharts['modeComp'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '평균 점수',
+        data: means,
+        backgroundColor: entries.map(([mode]) => {
+          const m = MODE_NAMES[mode];
+          return m ? m.color.replace('var(--red)', '#ff3b5c').replace('var(--green)', '#00e676')
+            .replace('var(--purple)', '#b388ff').replace('var(--yellow)', '#ffca28')
+            .replace('var(--cyan)', '#00e5ff').replace('var(--orange)', '#ff9100')
+            .replace('var(--accent)', '#448aff') : '#448aff';
+        }).map(c => c + '99'),
+        borderColor: entries.map(([mode]) => {
+          const m = MODE_NAMES[mode];
+          return m ? m.color.replace('var(--red)', '#ff3b5c').replace('var(--green)', '#00e676')
+            .replace('var(--purple)', '#b388ff').replace('var(--yellow)', '#ffca28')
+            .replace('var(--cyan)', '#00e5ff').replace('var(--orange)', '#ff9100')
+            .replace('var(--accent)', '#448aff') : '#448aff';
+        }),
+        borderWidth: 1,
+        borderRadius: 4,
+        errorBars: cis
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3' }, beginAtZero: true },
+        y: { grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3', font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// --- 4. Reliability ---
+function renderReliability() {
+  const container = document.getElementById('reliability-container');
+  const d = researchData && researchData.reliability;
+  if (!d || !Object.keys(d).length) {
+    container.innerHTML = '<p style="color:var(--text2)">데이터 부족</p>'; return;
+  }
+  let html = '<div class="research-grid">';
+  Object.entries(d).forEach(([mode, r]) => {
+    if (!r) return;
+    const info = MODE_NAMES[mode] || {icon: '\ud83c\udfaf', name: mode};
+    const alpha = r.cronbach_alpha;
+    let alphaCls = 'alpha-poor', alphaLabel = '불수용 (< 0.60)';
+    if (alpha >= 0.80) { alphaCls = 'alpha-good'; alphaLabel = '우수 (≥ 0.80)'; }
+    else if (alpha >= 0.60) { alphaCls = 'alpha-acceptable'; alphaLabel = '수용 (≥ 0.60)'; }
+    html += `
+      <div class="research-card">
+        <h3>${info.icon} ${info.name}</h3>
+        <table class="stat-table">
+          <tr><td>Cronbach's α</td><td class="num"><strong>${fmt(alpha)}</strong>
+            <span class="alpha-badge ${alphaCls}" style="margin-left:8px">${alphaLabel}</span></td></tr>
+          ${r.split_half !== undefined ? `<tr><td>반분법 신뢰도</td><td class="num">${fmt(r.split_half)}</td></tr>` : ''}
+          <tr><td>SEM</td><td class="num">${fmt(r.sem)}</td></tr>
+          <tr><td>문항 수</td><td class="num">${r.n_items || '-'}</td></tr>
+        </table>
+      </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// --- 5. Item Analysis ---
+let itemSortCol = 'difficulty', itemSortAsc = true;
+
+function renderItemAnalysis(sortCol, asc) {
+  if (sortCol !== undefined) { itemSortCol = sortCol; itemSortAsc = asc; }
+  const container = document.getElementById('item-analysis-container');
+  const items = researchData && researchData.item_analysis;
+  if (!items || !items.length) {
+    container.innerHTML = '<p style="color:var(--text2)">데이터 부족 (최소 5회 응시 문항 없음)</p>'; return;
+  }
+
+  const sorted = [...items].sort((a, b) => {
+    let va = a[itemSortCol], vb = b[itemSortCol];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return itemSortAsc ? -1 : 1;
+    if (va > vb) return itemSortAsc ? 1 : -1;
+    return 0;
+  });
+
+  function sortBtn(col, label) {
+    const arrow = itemSortCol === col ? (itemSortAsc ? ' ▲' : ' ▼') : '';
+    return `<span style="cursor:pointer;user-select:none" onclick="renderItemAnalysis('${col}',${itemSortCol===col ? !itemSortAsc : true})">${label}${arrow}</span>`;
+  }
+
+  function ratingClass(r) {
+    if (!r) return '';
+    const rl = r.toLowerCase();
+    if (rl === 'good' || rl === '우수') return 'item-good';
+    if (rl === 'revise' || rl === '수정 필요') return 'item-revise';
+    return 'item-poor';
+  }
+
+  container.innerHTML = `
+    <table class="stat-table">
+      <thead><tr>
+        <th>${sortBtn('question_id', '문항 ID')}</th>
+        <th>${sortBtn('mode', '모드')}</th>
+        <th>${sortBtn('n', 'N')}</th>
+        <th>${sortBtn('difficulty', '난이도(p)')}</th>
+        <th>${sortBtn('discrimination', '변별도(D)')}</th>
+        <th>${sortBtn('rpb', 'rpb')}</th>
+        <th>${sortBtn('rating', '평가')}</th>
+      </tr></thead>
+      <tbody>${sorted.map(item => {
+        const cls = ratingClass(item.rating);
+        const info = MODE_NAMES[item.mode] || {name: item.mode};
+        return `<tr>
+          <td><code>${item.question_id}</code></td>
+          <td>${info.name || item.mode}</td>
+          <td class="num">${item.n || '-'}</td>
+          <td class="num">${fmt(item.difficulty)}</td>
+          <td class="num">${fmt(item.discrimination)}</td>
+          <td class="num">${fmt(item.rpb)}</td>
+          <td class="${cls}"><strong>${item.rating || '-'}</strong></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+// --- 6. Correlation Matrix ---
+function renderCorrelationMatrix() {
+  const container = document.getElementById('correlation-container');
+  const d = researchData && researchData.correlation_matrix;
+  if (!d || !d.modes || !d.matrix) {
+    container.innerHTML = '<p style="color:var(--text2)">데이터 부족</p>'; return;
+  }
+  const modes = d.modes;
+  const matrix = d.matrix;
+
+  function corrColor(r) {
+    const abs = Math.abs(r);
+    const a = Math.min(abs, 1);
+    if (r > 0) return `rgba(68,138,255,${0.1 + a * 0.7})`;
+    return `rgba(255,59,92,${0.1 + a * 0.7})`;
+  }
+
+  let html = '<table class="stat-table"><thead><tr><th></th>';
+  modes.forEach(m => {
+    const info = MODE_NAMES[m] || {name: m};
+    html += `<th class="corr-cell">${info.name || m}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+  matrix.forEach((row, i) => {
+    const infoI = MODE_NAMES[modes[i]] || {name: modes[i]};
+    html += `<tr><td><strong>${infoI.name || modes[i]}</strong></td>`;
+    row.forEach((r, j) => {
+      const bg = i === j ? 'background:var(--surface2)' : `background:${corrColor(r)}`;
+      const txt = i === j ? '-' : fmt(r);
+      html += `<td class="corr-cell num" style="${bg}">${txt}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+// --- 7. Time-Accuracy Scatter ---
+function renderTimeAccuracyChart() {
+  destroyChart('timeAcc');
+  const canvas = document.getElementById('time-accuracy-chart');
+  const d = researchData && researchData.time_accuracy && researchData.time_accuracy.by_mode;
+  if (!d || !d.length) {
+    canvas.parentElement.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">데이터 부족</p>';
+    return;
+  }
+  const colors = ['#448aff','#00e676','#ff3b5c','#ffca28','#b388ff','#ff9100','#00e5ff'];
+  researchCharts['timeAcc'] = new Chart(canvas, {
+    type: 'scatter',
+    data: {
+      datasets: d.map((item, i) => {
+        const info = MODE_NAMES[item.mode] || {name: item.mode};
+        return {
+          label: info.name || item.mode,
+          data: [{x: item.avg_time, y: item.avg_accuracy}],
+          backgroundColor: colors[i % colors.length] + 'cc',
+          borderColor: colors[i % colors.length],
+          pointRadius: 8,
+          pointHoverRadius: 10
+        };
+      })
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8b8fa3', font: { size: 11 } } } },
+      scales: {
+        x: { title: { display: true, text: '평균 응답 시간 (초)', color: '#8b8fa3' },
+             grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3' } },
+        y: { title: { display: true, text: '평균 정확도 (%)', color: '#8b8fa3' },
+             grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+// --- 8. Comparative Analysis ---
+function renderComparativeAnalysis() {
+  const container = document.getElementById('comparative-container');
+  const d = researchData && researchData.comparative;
+  if (!d) { container.innerHTML = '<p style="color:var(--text2)">데이터 부족</p>'; return; }
+
+  let html = '';
+
+  // ANOVA summary
+  if (d.anova) {
+    const a = d.anova;
+    const sig = a.p_value !== null && a.p_value < 0.05 ? '<span style="color:var(--red)">*유의미</span>' : '비유의미';
+    html += `
+      <div class="research-card" style="margin-bottom:16px">
+        <h3>항충 분산분석 (One-Way ANOVA)</h3>
+        <table class="stat-table">
+          <thead><tr><th>F</th><th>df (집단간)</th><th>df (집단내)</th><th>p</th><th>유의미도</th></tr></thead>
+          <tbody><tr>
+            <td class="num">${fmt(a.f_stat)}</td>
+            <td class="num">${a.df_between || '-'}</td>
+            <td class="num">${a.df_within || '-'}</td>
+            <td class="num">${a.p_value !== null ? fmt(a.p_value, 3) : '-'}</td>
+            <td>${sig}</td>
+          </tr></tbody>
+        </table>
+      </div>`;
+  }
+
+  // t-test table
+  if (d.t_tests && d.t_tests.length) {
+    function sigStars(p) {
+      if (p === null || p === undefined) return '';
+      if (p < 0.001) return '<sup class="significance">***</sup>';
+      if (p < 0.01) return '<sup class="significance">**</sup>';
+      if (p < 0.05) return '<sup class="significance">*</sup>';
+      return '';
+    }
+    html += `
+      <div style="overflow-x:auto">
+      <table class="stat-table">
+        <thead><tr>
+          <th>모드 A</th><th>모드 B</th>
+          <th class="num">t</th><th class="num">df</th>
+          <th class="num">p</th><th class="num">Cohen's d</th><th>유의</th>
+        </tr></thead>
+        <tbody>${d.t_tests.map(t => {
+          const infoA = MODE_NAMES[t.mode_a] || {name: t.mode_a};
+          const infoB = MODE_NAMES[t.mode_b] || {name: t.mode_b};
+          const stars = sigStars(t.p_value);
+          const sigCls = t.significant ? 'color:var(--green)' : 'color:var(--text2)';
+          return `<tr>
+            <td>${infoA.name || t.mode_a}</td>
+            <td>${infoB.name || t.mode_b}</td>
+            <td class="num">${fmt(t.t_stat)}</td>
+            <td class="num">${t.df !== null ? t.df : '-'}</td>
+            <td class="num">${t.p_value !== null ? fmt(t.p_value, 3) : '-'}${stars}</td>
+            <td class="num">${fmt(t.cohens_d)}</td>
+            <td style="${sigCls}">${t.significant ? '유의미*' : '비유의미'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+      <p style="color:var(--text2);font-size:0.75rem;margin-top:8px">*p&lt;.05 &nbsp;**p&lt;.01 &nbsp;***p&lt;.001</p>`;
+  }
+
+  container.innerHTML = html || '<p style="color:var(--text2)">데이터 부족</p>';
+}
+
+// --- 9. Learning Curve ---
+function renderLearningCurve() {
+  destroyChart('learnCurve');
+  const canvas = document.getElementById('learning-curve-chart');
+  const d = researchData && researchData.learning_curve;
+  if (!d || !d.session_scores || !d.session_scores.length) {
+    canvas.parentElement.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">데이터 부족 (재방문자 없음)</p>';
+    return;
+  }
+  const scores = d.session_scores;
+  const labels = scores.map((_, i) => `세션 ${i + 1}`);
+  researchCharts['learnCurve'] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '평균 점수',
+        data: scores,
+        borderColor: '#00e676',
+        backgroundColor: 'rgba(0,230,118,0.1)',
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: '#00e676',
+        pointRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8b8fa3' } } },
+      scales: {
+        x: { grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3' } },
+        y: { grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3' }, beginAtZero: false }
+      }
+    }
+  });
+  const card = canvas.closest('.research-card');
+  if (card && d.n_returning !== undefined) {
+    const note = document.createElement('p');
+    note.style.cssText = 'color:var(--text2);font-size:0.8rem;margin-top:8px';
+    note.textContent = `재방문 교육생 ${d.n_returning}명 기준`;
+    card.appendChild(note);
+  }
+}
+
+// --- 10. Time Distribution (box-plot like bar chart) ---
+function renderTimeDistChart() {
+  destroyChart('timeDist');
+  const canvas = document.getElementById('time-dist-chart');
+  const d = researchData && researchData.time_analysis && researchData.time_analysis.by_mode;
+  if (!d || !d.length) {
+    canvas.parentElement.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">데이터 부족</p>';
+    return;
+  }
+  const labels = d.map(item => { const info = MODE_NAMES[item.mode] || {name: item.mode}; return info.name || item.mode; });
+  const medians = d.map(item => item.median);
+  const means = d.map(item => item.mean);
+  const q1 = d.map(item => item.q1);
+  const q3 = d.map(item => item.q3);
+
+  researchCharts['timeDist'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Q1-Q3 범위', data: q3.map((v, i) => v - (q1[i] || 0)), backgroundColor: 'rgba(68,138,255,0.3)', borderColor: '#448aff', borderWidth: 1 },
+        { label: '중앙값', data: medians, backgroundColor: '#00e676', borderColor: '#00e676', borderWidth: 2, type: 'bar', barThickness: 3 },
+        { label: '평균', data: means, type: 'line', borderColor: '#ffca28', borderDash: [4, 4], tension: 0, pointRadius: 4, pointBackgroundColor: '#ffca28', fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8b8fa3', font: { size: 11 } } } },
+      scales: {
+        x: { grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3', font: { size: 10 } } },
+        y: { title: { display: true, text: '시간 (초)', color: '#8b8fa3' }, grid: { color: '#2e3142' }, ticks: { color: '#8b8fa3' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+// --- 11. Performance Categories ---
+function renderPerformanceCategories() {
+  destroyChart('perfPie');
+  const canvas = document.getElementById('performance-pie-chart');
+  const d = researchData && researchData.performance_categories;
+  if (!d || !d.overall) {
+    canvas.parentElement.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">데이터 부족</p>';
+    const tbl = document.getElementById('performance-table-container');
+    if (tbl) tbl.innerHTML += '<p style="color:var(--text2)">데이터 부족</p>';
+    return;
+  }
+  const overall = d.overall;
+  const catColors = { 'Excellent': '#00e676', '우수': '#00e676', 'Good': '#448aff', '양호': '#448aff', 'Average': '#ffca28', '보통': '#ffca28', 'Below Average': '#ff9100', '미흡': '#ff9100', 'Poor': '#ff3b5c', '부족': '#ff3b5c' };
+  const labels = Object.keys(overall);
+  const values = Object.values(overall);
+  const bgColors = labels.map(l => catColors[l] || '#8b8fa3');
+
+  researchCharts['perfPie'] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: bgColors.map(c => c + 'cc'), borderColor: bgColors, borderWidth: 2 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { color: '#8b8fa3', font: { size: 11 }, padding: 12 } } }
+    }
+  });
+
+  // Mode table
+  const tableContainer = document.getElementById('performance-table-container');
+  if (d.by_mode) {
+    const modes = Object.keys(d.by_mode);
+    const cats = labels;
+    let tbl = '<div style="overflow-x:auto"><table class="stat-table"><thead><tr><th>모드</th>';
+    cats.forEach(c => tbl += `<th class="num">${c}</th>`);
+    tbl += '</tr></thead><tbody>';
+    modes.forEach(mode => {
+      const info = MODE_NAMES[mode] || {name: mode};
+      tbl += `<tr><td>${info.name || mode}</td>`;
+      cats.forEach(c => tbl += `<td class="num">${d.by_mode[mode][c] || 0}</td>`);
+      tbl += '</tr>';
+    });
+    tbl += '</tbody></table></div>';
+    tableContainer.innerHTML += tbl;
+  } else {
+    tableContainer.innerHTML += '<p style="color:var(--text2)">데이터 부족</p>';
+  }
+}
+
+// --- 12. Paper-Ready Tables ---
+function renderPaperTables() {
+  const container = document.getElementById('paper-tables-container');
+  if (!researchData) { container.innerHTML = '<p style="color:var(--text2)">데이터 부족</p>'; return; }
+  container.innerHTML = buildPaperTablesHTML();
+}
+
+function buildPaperTablesHTML() {
+  const d = researchData;
+  let html = '<div style="font-family:serif;color:var(--text)">';
+
+  // Table 1: Participant Characteristics / Descriptive Stats
+  html += `
+    <div style="margin-bottom:32px">
+      <p style="text-align:center;font-size:0.85rem;color:var(--text2);margin-bottom:4px">Table 1</p>
+      <p style="text-align:center;font-weight:bold;margin-bottom:12px">모드별 점수 기술통계 (Descriptive Statistics by Mode)</p>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead>
+          <tr style="border-top:2px solid var(--text);border-bottom:1px solid var(--text)">
+            <th style="padding:6px 10px;text-align:left">모드</th>
+            <th style="padding:6px 10px;text-align:center">N</th>
+            <th style="padding:6px 10px;text-align:center">M</th>
+            <th style="padding:6px 10px;text-align:center">SD</th>
+            <th style="padding:6px 10px;text-align:center">Median</th>
+            <th style="padding:6px 10px;text-align:center">최솏값</th>
+            <th style="padding:6px 10px;text-align:center">최댓값</th>
+            <th style="padding:6px 10px;text-align:center">왜도</th>
+            <th style="padding:6px 10px;text-align:center">첨도</th>
+          </tr>
+        </thead>
+        <tbody>`;
+  if (d.descriptive && d.descriptive.by_mode) {
+    Object.entries(d.descriptive.by_mode).forEach(([mode, s]) => {
+      if (!s) return;
+      const info = MODE_NAMES[mode] || {name: mode};
+      html += `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 10px">${info.name || mode}</td>
+        <td style="padding:6px 10px;text-align:center">${s.n || '-'}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(s.mean)}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(s.sd)}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(s.median)}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(s.min)}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(s.max)}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(s.skewness)}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(s.kurtosis)}</td>
+      </tr>`;
+    });
+  } else {
+    html += `<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:12px">데이터 부족</td></tr>`;
+  }
+  html += `</tbody>
+        <tfoot><tr style="border-top:2px solid var(--text)">
+          <td colspan="9" style="padding:6px 10px;font-size:0.75rem;font-style:italic">Note. M = 평균; SD = 표준편차; 업사이드 결측치 제외.</td>
+        </tr></tfoot>
+      </table></div>
+    </div>`;
+
+  // Table 2: Reliability
+  html += `
+    <div style="margin-bottom:32px">
+      <p style="text-align:center;font-size:0.85rem;color:var(--text2);margin-bottom:4px">Table 2</p>
+      <p style="text-align:center;font-weight:bold;margin-bottom:12px">모드별 신뢰도 분석 (Reliability Analysis by Mode)</p>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead><tr style="border-top:2px solid var(--text);border-bottom:1px solid var(--text)">
+          <th style="padding:6px 10px;text-align:left">모드</th>
+          <th style="padding:6px 10px;text-align:center">Cronbach's α</th>
+          <th style="padding:6px 10px;text-align:center">반분법 신뢰도</th>
+          <th style="padding:6px 10px;text-align:center">SEM</th>
+          <th style="padding:6px 10px;text-align:center">문항 수</th>
+        </tr></thead>
+        <tbody>`;
+  if (d.reliability) {
+    Object.entries(d.reliability).forEach(([mode, r]) => {
+      if (!r) return;
+      const info = MODE_NAMES[mode] || {name: mode};
+      html += `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 10px">${info.name || mode}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(r.cronbach_alpha)}</td>
+        <td style="padding:6px 10px;text-align:center">${r.split_half !== undefined ? fmt(r.split_half) : '-'}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(r.sem)}</td>
+        <td style="padding:6px 10px;text-align:center">${r.n_items || '-'}</td>
+      </tr>`;
+    });
+  } else {
+    html += `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:12px">데이터 부족</td></tr>`;
+  }
+  html += `</tbody>
+        <tfoot><tr style="border-top:2px solid var(--text)">
+          <td colspan="5" style="padding:6px 10px;font-size:0.75rem;font-style:italic">Note. SEM = 측정표준오차(Standard Error of Measurement). α ≥ .80 = 우수, α ≥ .60 = 수용가능.</td>
+        </tr></tfoot>
+      </table></div>
+    </div>`;
+
+  // Table 3: Item Analysis Summary
+  html += `
+    <div style="margin-bottom:32px">
+      <p style="text-align:center;font-size:0.85rem;color:var(--text2);margin-bottom:4px">Table 3</p>
+      <p style="text-align:center;font-weight:bold;margin-bottom:12px">문항 분석 요약 (Item Analysis Summary)</p>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead><tr style="border-top:2px solid var(--text);border-bottom:1px solid var(--text)">
+          <th style="padding:6px 10px;text-align:left">문항 ID</th>
+          <th style="padding:6px 10px;text-align:left">모드</th>
+          <th style="padding:6px 10px;text-align:center">난이도(p)</th>
+          <th style="padding:6px 10px;text-align:center">변별도(D)</th>
+          <th style="padding:6px 10px;text-align:center">r<sub>pb</sub></th>
+          <th style="padding:6px 10px;text-align:center">평가</th>
+        </tr></thead>
+        <tbody>`;
+  if (d.item_analysis && d.item_analysis.length) {
+    d.item_analysis.forEach(item => {
+      const info = MODE_NAMES[item.mode] || {name: item.mode};
+      html += `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 10px"><code>${item.question_id}</code></td>
+        <td style="padding:6px 10px">${info.name || item.mode}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(item.difficulty)}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(item.discrimination)}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(item.rpb)}</td>
+        <td style="padding:6px 10px;text-align:center">${item.rating || '-'}</td>
+      </tr>`;
+    });
+  } else {
+    html += `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:12px">데이터 부족</td></tr>`;
+  }
+  html += `</tbody>
+        <tfoot><tr style="border-top:2px solid var(--text)">
+          <td colspan="6" style="padding:6px 10px;font-size:0.75rem;font-style:italic">Note. p = 난이도 (정답률); D = 변별도 (U27-L27); r<sub>pb</sub> = 점이중상관계수. 최소 5회 응시 문항만 포함.</td>
+        </tr></tfoot>
+      </table></div>
+    </div>`;
+
+  // Table 4: Comparative Statistics (t-tests)
+  html += `
+    <div style="margin-bottom:32px">
+      <p style="text-align:center;font-size:0.85rem;color:var(--text2);margin-bottom:4px">Table 4</p>
+      <p style="text-align:center;font-weight:bold;margin-bottom:12px">모드간 독립표본 t-검정 (Independent Samples t-test)</p>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead><tr style="border-top:2px solid var(--text);border-bottom:1px solid var(--text)">
+          <th style="padding:6px 10px;text-align:left">비교 모드</th>
+          <th style="padding:6px 10px;text-align:center">t</th>
+          <th style="padding:6px 10px;text-align:center">df</th>
+          <th style="padding:6px 10px;text-align:center">p</th>
+          <th style="padding:6px 10px;text-align:center">Cohen's d</th>
+        </tr></thead>
+        <tbody>`;
+  if (d.comparative && d.comparative.t_tests && d.comparative.t_tests.length) {
+    d.comparative.t_tests.forEach(t => {
+      const infoA = MODE_NAMES[t.mode_a] || {name: t.mode_a};
+      const infoB = MODE_NAMES[t.mode_b] || {name: t.mode_b};
+      let stars = '';
+      if (t.p_value !== null) {
+        if (t.p_value < 0.001) stars = '***';
+        else if (t.p_value < 0.01) stars = '**';
+        else if (t.p_value < 0.05) stars = '*';
+      }
+      html += `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 10px">${infoA.name || t.mode_a} vs. ${infoB.name || t.mode_b}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(t.t_stat)}</td>
+        <td style="padding:6px 10px;text-align:center">${t.df !== null ? t.df : '-'}</td>
+        <td style="padding:6px 10px;text-align:center">${t.p_value !== null ? fmt(t.p_value, 3) : '-'}${stars}</td>
+        <td style="padding:6px 10px;text-align:center">${fmt(t.cohens_d)}</td>
+      </tr>`;
+    });
+  } else {
+    html += `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:12px">데이터 부족</td></tr>`;
+  }
+  html += `</tbody>
+        <tfoot><tr style="border-top:2px solid var(--text)">
+          <td colspan="5" style="padding:6px 10px;font-size:0.75rem;font-style:italic">Note. *p &lt; .05. **p &lt; .01. ***p &lt; .001.</td>
+        </tr></tfoot>
+      </table></div>
+    </div>`;
+
+  // Table 5: Performance Categories
+  html += `
+    <div style="margin-bottom:32px">
+      <p style="text-align:center;font-size:0.85rem;color:var(--text2);margin-bottom:4px">Table 5</p>
+      <p style="text-align:center;font-weight:bold;margin-bottom:12px">모드별 성취도 분류 (Performance Category Distribution by Mode)</p>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:0.82rem">`;
+  if (d.performance_categories && d.performance_categories.overall) {
+    const cats = Object.keys(d.performance_categories.overall);
+    html += `<thead><tr style="border-top:2px solid var(--text);border-bottom:1px solid var(--text)">
+        <th style="padding:6px 10px;text-align:left">모드</th>
+        ${cats.map(c => `<th style="padding:6px 10px;text-align:center">${c}</th>`).join('')}
+        <th style="padding:6px 10px;text-align:center">합계</th>
+      </tr></thead><tbody>`;
+    // Overall row
+    const overallTotal = cats.reduce((s, c) => s + (d.performance_categories.overall[c] || 0), 0);
+    html += `<tr style="border-bottom:1px solid var(--border);font-weight:bold">
+      <td style="padding:6px 10px">전체</td>
+      ${cats.map(c => `<td style="padding:6px 10px;text-align:center">${d.performance_categories.overall[c] || 0}</td>`).join('')}
+      <td style="padding:6px 10px;text-align:center">${overallTotal}</td>
+    </tr>`;
+    if (d.performance_categories.by_mode) {
+      Object.entries(d.performance_categories.by_mode).forEach(([mode, byMode]) => {
+        const info = MODE_NAMES[mode] || {name: mode};
+        const total = cats.reduce((s, c) => s + (byMode[c] || 0), 0);
+        html += `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:6px 10px">${info.name || mode}</td>
+          ${cats.map(c => `<td style="padding:6px 10px;text-align:center">${byMode[c] || 0}</td>`).join('')}
+          <td style="padding:6px 10px;text-align:center">${total}</td>
+        </tr>`;
+      });
+    }
+  } else {
+    html += `<tbody><tr><td style="text-align:center;color:var(--text2);padding:12px">데이터 부족</td></tr>`;
+  }
+  html += `</tbody>
+        <tfoot><tr style="border-top:2px solid var(--text)">
+          <td colspan="10" style="padding:6px 10px;font-size:0.75rem;font-style:italic">Note. 수치는 응시자 수 (세션 수).</td>
+        </tr></tfoot>
+      </table></div>
+    </div>`;
+
+  // Table 6: Correlation Matrix
+  html += `
+    <div style="margin-bottom:32px">
+      <p style="text-align:center;font-size:0.85rem;color:var(--text2);margin-bottom:4px">Table 6</p>
+      <p style="text-align:center;font-weight:bold;margin-bottom:12px">모드간 점수 상관행렬 (Correlation Matrix of Mode Scores)</p>
+      <div style="overflow-x:auto">`;
+  if (d.correlation_matrix && d.correlation_matrix.modes && d.correlation_matrix.matrix) {
+    const modes = d.correlation_matrix.modes;
+    const matrix = d.correlation_matrix.matrix;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead><tr style="border-top:2px solid var(--text);border-bottom:1px solid var(--text)">
+          <th style="padding:6px 10px"></th>
+          ${modes.map((m, i) => { const info = MODE_NAMES[m] || {name: m}; return `<th style="padding:6px 10px;text-align:center">${i + 1}. ${info.name || m}</th>`; }).join('')}
+        </tr></thead>
+        <tbody>
+        ${matrix.map((row, i) => {
+          const infoI = MODE_NAMES[modes[i]] || {name: modes[i]};
+          return `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 10px"><strong>${i + 1}. ${infoI.name || modes[i]}</strong></td>
+            ${row.map((r, j) => `<td style="padding:6px 10px;text-align:center">${i === j ? '-' : fmt(r)}</td>`).join('')}
+          </tr>`;
+        }).join('')}
+        </tbody>
+        <tfoot><tr style="border-top:2px solid var(--text)">
+          <td colspan="${modes.length + 1}" style="padding:6px 10px;font-size:0.75rem;font-style:italic">Note. Pearson 상관계수; *p &lt; .05, **p &lt; .01.</td>
+        </tr></tfoot>
+      </table>`;
+  } else {
+    html += '<p style="color:var(--text2)">데이터 부족</p>';
+  }
+  html += '</div></div></div>';
+  return html;
+}
+
+// === EXPORT FUNCTIONS ===
+function exportResearchJSON() {
+  if (!researchData) { alert('분석 데이터가 없습니다. 먼저 탭을 열어주세요.'); return; }
+  const blob = new Blob([JSON.stringify(researchData, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `research_analysis_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportRawData() {
+  try {
+    const res = await fetch(`${API}/api/admin/research/export`, {headers: authHeaders()});
+    if (!res.ok) throw new Error(res.status);
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : `raw_data_${new Date().toISOString().slice(0,10)}.csv`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Raw 데이터 내보내기 실패: ' + e.message);
+  }
+}
+
+function exportPaperTables() {
+  if (!researchData) { alert('분석 데이터가 없습니다. 먼저 탭을 열어주세요.'); return; }
+  const content = buildPaperTablesHTML();
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>논문용 표 - 재난의학 서바이벌 교육</title>
+<style>
+body { font-family: 'Times New Roman', serif; background: #fff; color: #111; max-width: 900px; margin: 40px auto; padding: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-bottom: 8px; }
+th, td { padding: 6px 10px; }
+code { font-family: monospace; }
+</style>
+</head>
+<body>
+<h1 style="font-size:14pt;text-align:center;margin-bottom:8px">재난의학 서바이벌 교육 시스템 — 논문용 통계표</h1>
+<p style="text-align:center;font-size:10pt;color:#555;margin-bottom:32px">생성일시: ${new Date().toLocaleString('ko-KR')}</p>
+${content}
+</body>
+</html>`;
+  const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `paper_tables_${new Date().toISOString().slice(0,10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 </script>
 </body>

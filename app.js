@@ -4351,3 +4351,995 @@ function showCTMBossResults() {
 // ============================================
 // END OF NEW GAME MODES
 // ============================================
+
+// ============================================
+// JRPG CAMPAIGN ENGINE
+// Zelda / Final Fantasy Style JRPG
+// ============================================
+
+// ---- PATCH: render() ----
+// Monkey-patch render to add campaign screens
+(function() {
+  var _origRender = render;
+  render = function() {
+    var s = G.screen;
+    if (s === 'campaign') renderCampaignWorldMap();
+    else if (s === 'campaignRole') renderCampaignRoleSelect();
+    else if (s === 'campaignChapters') renderCampaignChapterMap();
+    else if (s === 'campaignCinematic') renderCampaignCinematic();
+    else if (s === 'campaignBriefing') renderCampaignBriefing();
+    else if (s === 'campaignBattle') renderCampaignBattle();
+    else if (s === 'campaignResult') renderCampaignChapterResult();
+    else if (s === 'campaignComplete') renderCampaignComplete();
+    else _origRender();
+  };
+})();
+
+// ---- PATCH: enterMode() to handle campaign ----
+(function() {
+  var _origEnter = enterMode;
+  enterMode = function(mode) {
+    if (mode === 'campaign') {
+      G.screen = 'campaign';
+      G.campaignState = G.campaignState || { selectedCampaign: null, selectedRole: null };
+      G.campaignProgress = G.campaignProgress || {};
+      Tracker.startMode('campaign');
+      render();
+      return;
+    }
+    _origEnter(mode);
+  };
+})();
+
+// ---- PATCH: renderModeSelect to inject campaign card ----
+(function() {
+  var _origModeSelect = renderModeSelect;
+  renderModeSelect = function() {
+    _origModeSelect();
+    // Insert campaign card into the mode grid after rendering
+    var grid = document.querySelector('.mode-grid');
+    if (grid && !document.querySelector('[data-mode="campaign"]')) {
+      var card = document.createElement('button');
+      card.className = 'mode-card';
+      card.setAttribute('data-mode', 'campaign');
+      card.style.cssText = 'border-color:rgba(255,215,0,0.35);background:linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,140,0,0.05));';
+      card.innerHTML = `
+        <div class="mode-icon">⚔️</div>
+        <div class="mode-info">
+          <h3>캠페인 모드 ${G.campaignProgress && Object.keys(G.campaignProgress).length > 0 ? '▶' : '🆕'}</h3>
+          <p>젤다/FF 스타일 스토리텔링 RPG — 재난의 세계를 정복하라</p>
+          <div class="mode-tag-row">
+            <span class="mode-tag" style="background:rgba(255,215,0,0.15);color:#ffd700">JRPG</span>
+          </div>
+        </div>`;
+      card.onclick = function() { enterMode('campaign'); };
+      grid.insertBefore(card, grid.firstChild);
+    }
+  };
+})();
+
+// ============================================
+// CAMPAIGN HELPER FUNCTIONS
+// ============================================
+
+function getCampaignData() {
+  return window.CAMPAIGN_MODE;
+}
+
+function getCampaignById(id) {
+  var data = getCampaignData();
+  if (!data) return null;
+  return (data.campaigns || []).find(function(c) { return c.id === id; });
+}
+
+function getCampaignChapterData(campaignId, chapterIndex) {
+  var campaign = getCampaignById(campaignId);
+  if (!campaign) return null;
+  return (campaign.chapters || [])[chapterIndex] || null;
+}
+
+function getCampaignProgress() {
+  G.campaignProgress = G.campaignProgress || {};
+  return G.campaignProgress;
+}
+
+function saveCampaignProgress() {
+  // Progress lives in G.campaignProgress (session-persistent)
+  // Structure: { campaignId: { chaptersCompleted: [0,1,2], bestScore: 1200, started: true } }
+}
+
+function getCampaignCompletedChapters(campaignId) {
+  var prog = getCampaignProgress();
+  if (!prog[campaignId]) return [];
+  return prog[campaignId].chaptersCompleted || [];
+}
+
+function isCampaignUnlocked(campaignId) {
+  var data = getCampaignData();
+  if (!data) return false;
+  var campaigns = data.campaigns || [];
+  var idx = campaigns.findIndex(function(c) { return c.id === campaignId; });
+  if (idx === 0) return true; // First campaign always unlocked
+  if (idx < 0) return false;
+  // Previous campaign must have at least 3 chapters done
+  var prevId = campaigns[idx - 1].id;
+  var prevDone = getCampaignCompletedChapters(prevId);
+  return prevDone.length >= 3;
+}
+
+function isCampaignCompleted(campaignId) {
+  var campaign = getCampaignById(campaignId);
+  if (!campaign) return false;
+  var done = getCampaignCompletedChapters(campaignId);
+  return done.length >= (campaign.chapters || []).length;
+}
+
+function calculateBattleDamage(correct, role, difficulty) {
+  if (correct) {
+    // Enemy takes damage: base 15-30 based on difficulty
+    var base = difficulty === 'hard' ? 30 : difficulty === 'medium' ? 22 : 15;
+    return base + Math.floor(Math.random() * 8);
+  } else {
+    // Player takes damage: base 10-20
+    var base = difficulty === 'hard' ? 20 : difficulty === 'medium' ? 15 : 10;
+    return base + Math.floor(Math.random() * 6);
+  }
+}
+
+function checkRoleBonus(roleId, challenge) {
+  var data = getCampaignData();
+  if (!data) return false;
+  var role = (data.roles || []).find(function(r) { return r.id === roleId; });
+  if (!role || !challenge) return false;
+  var bonuses = role.bonuses || {};
+  var qType = (challenge.type || '').toLowerCase();
+  // Check if question type matches any role bonus category
+  return Object.keys(bonuses).some(function(k) {
+    return qType.indexOf(k) >= 0 || (challenge.id || '').indexOf(k) >= 0;
+  });
+}
+
+function levelUpCheck() {
+  if (!G.campaign) return false;
+  var data = getCampaignData();
+  var milestones = data ? (data.milestones || []) : [];
+  var oldLevel = G.campaign.level || 1;
+  var xp = G.campaign.xp || 0;
+  // XP thresholds: 500, 1500, 3000, 5000, 8000
+  var thresholds = [0, 500, 1500, 3000, 5000, 8000];
+  var newLevel = 1;
+  for (var i = thresholds.length - 1; i >= 0; i--) {
+    if (xp >= thresholds[i]) { newLevel = i + 1; break; }
+  }
+  newLevel = Math.min(newLevel, 6);
+  if (newLevel > oldLevel) {
+    G.campaign.level = newLevel;
+    var milestone = milestones[newLevel - 1];
+    return milestone ? milestone.title : '레벨 ' + newLevel;
+  }
+  return false;
+}
+
+function useItem(itemId) {
+  if (!G.campaign) return false;
+  var items = G.campaign.items || [];
+  var idx = items.findIndex(function(i) { return i === itemId; });
+  if (idx < 0) return false;
+  items.splice(idx, 1);
+  G.campaign.items = items;
+
+  // Apply item effect
+  if (itemId === 'medkit') {
+    var heal = Math.floor((G.campaign.maxHp || 100) * 0.25);
+    G.campaign.hp = Math.min(G.campaign.maxHp || 100, (G.campaign.hp || 0) + heal);
+    showAchievement('🩹', '구급키트 사용!', 'HP +' + heal);
+  } else if (itemId === 'hint') {
+    G.campaign.hintActive = true;
+    showAchievement('💡', '힌트 사용!', '오답 하나를 제거합니다');
+  } else if (itemId === 'shield') {
+    G.campaign.shieldActive = true;
+    showAchievement('🛡️', '방호복 장착!', '다음 오답 HP 손실 면제');
+  } else if (itemId === 'doubleXP') {
+    G.campaign.doubleXPCount = 3;
+    showAchievement('⭐', '2배 경험치!', '다음 3문제 XP 2배');
+  } else if (itemId === 'timefreeze') {
+    G.campaign.timeFreezeActive = true;
+    showAchievement('⏸️', '시간 정지!', '타이머 연장');
+  } else if (itemId === 'antidote') {
+    G.campaign.antidoteReady = true;
+    showAchievement('💉', '해독제 준비!', 'HP 0 시 자동 부활');
+  }
+  return true;
+}
+
+function renderCampaignPlayerHUD() {
+  if (!G.campaign) return '';
+  var c = G.campaign;
+  var data = getCampaignData();
+  var roles = data ? (data.roles || []) : [];
+  var role = roles.find(function(r) { return r.id === c.role; }) || {};
+  var maxHp = c.maxHp || 100;
+  var hp = Math.max(0, c.hp || 0);
+  var hpPct = Math.round((hp / maxHp) * 100);
+  var xpForLevel = [500, 1000, 1500, 2000, 3000, 8000];
+  var levelIdx = Math.min((c.level || 1) - 1, xpForLevel.length - 1);
+  var xpThisLevel = levelIdx > 0 ? [0,500,1500,3000,5000,8000][levelIdx] : 0;
+  var xpNext = xpForLevel[levelIdx] || 8000;
+  var xpPct = Math.round(Math.min(100, ((c.xp - xpThisLevel) / (xpNext - xpThisLevel + 1)) * 100));
+
+  // Items in HUD (show up to 4)
+  var itemSlots = [];
+  var itemData = data ? (data.items || []) : [];
+  var ownedItems = c.items || [];
+  for (var i = 0; i < 4; i++) {
+    var iid = ownedItems[i];
+    if (iid) {
+      var itemDef = itemData.find(function(d) { return d.id === iid; }) || {};
+      var icon = iid === 'hint' ? '💡' : iid === 'medkit' ? '🩹' : iid === 'timefreeze' ? '⏸️' : iid === 'shield' ? '🛡️' : iid === 'doubleXP' ? '⭐' : iid === 'antidote' ? '💉' : '📦';
+      itemSlots.push('<div class="hud-item" onclick="useCampaignItem(\'' + iid + '\')" title="' + (itemDef.desc || '') + '">' + icon + '</div>');
+    } else {
+      itemSlots.push('<div class="hud-item empty">·</div>');
+    }
+  }
+
+  var data2 = getCampaignData();
+  var milestones = data2 ? (data2.milestones || []) : [];
+  var milestone = milestones[(c.level || 1) - 1] || {};
+
+  return `<div class="player-hud">
+    <div class="hud-avatar">${role.emoji || '👤'}</div>
+    <div class="hud-info">
+      <div class="hud-name">${role.name || '대원'}</div>
+      <div class="hud-title">${milestone.title || 'Lv.' + (c.level || 1)}</div>
+    </div>
+    <div class="hud-bars">
+      <div class="hud-bar">
+        <span class="bar-label">HP</span>
+        <div class="bar-track"><div class="bar-fill hp" style="width:${hpPct}%"></div></div>
+        <span class="bar-value">${hp}/${maxHp}</span>
+      </div>
+      <div class="hud-bar">
+        <span class="bar-label">XP</span>
+        <div class="bar-track"><div class="bar-fill xp" style="width:${xpPct}%"></div></div>
+        <span class="bar-value">${c.xp || 0}</span>
+      </div>
+    </div>
+    <div class="hud-items">${itemSlots.join('')}</div>
+    <div class="hud-level">
+      <div class="lv-num">${c.level || 1}</div>
+      <div class="lv-label">LV</div>
+    </div>
+  </div>`;
+}
+
+function useCampaignItem(itemId) {
+  if (useItem(itemId)) {
+    render();
+  }
+}
+
+// ============================================
+// 1. WORLD MAP
+// ============================================
+function renderCampaignWorldMap() {
+  var data = getCampaignData();
+  if (!data) {
+    app.innerHTML = '<div style="padding:40px;text-align:center;color:#ff3b5c">캠페인 데이터 로딩 실패</div>';
+    return;
+  }
+  var campaigns = data.campaigns || [];
+  var prog = getCampaignProgress();
+
+  var nodes = campaigns.map(function(c, idx) {
+    var unlocked = isCampaignUnlocked(c.id);
+    var completed = isCampaignCompleted(c.id);
+    var done = getCampaignCompletedChapters(c.id);
+    var total = (c.chapters || []).length;
+    var pct = total > 0 ? Math.round((done.length / total) * 100) : 0;
+    var cls = completed ? 'completed' : !unlocked ? 'locked' : '';
+    var color = c.cardColor || '#ffd700';
+    var onclick = unlocked ? 'selectCampaign("' + c.id + '")' : 'showAchievement("🔒","잠긴 캠페인","이전 캠페인을 3챕터 이상 완료하세요")';
+
+    return `<div class="campaign-node ${cls}" style="--node-color:${color}" onclick="${onclick}">
+      <div class="node-icon">${c.icon || '⚔️'}</div>
+      <div class="node-title">${(c.title || '').replace(/^.+?\s/, '')}</div>
+      <div class="node-subtitle">${c.subtitle || ''}</div>
+      <div class="node-meta">
+        <span class="node-difficulty">${c.difficulty || '★☆☆☆☆'}</span>
+        <span>${c.difficultyLabel || ''}</span>
+        <span>⏱ ${c.estimatedTime || '45분'}</span>
+      </div>
+      ${total > 0 ? `<div class="node-progress">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#6b7080;margin-bottom:4px">
+          <span>진행도</span><span>${done.length}/${total} 챕터</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+      </div>` : ''}
+      ${!unlocked ? '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2rem">🔒</div>' : ''}
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `<div class="campaign-screen-wrap">
+    <div class="world-map">
+      <button class="back-btn" onclick="G.screen='modes';render()">← 미션 선택으로</button>
+      <div class="world-map-title">⚔️ 재난 대응 세계</div>
+      <div class="world-map-subtitle">캠페인을 선택하여 재난 현장으로 출동하라</div>
+      <div class="campaign-nodes">${nodes}</div>
+    </div>
+  </div>`;
+}
+
+function selectCampaign(campaignId) {
+  G.campaignState = G.campaignState || {};
+  G.campaignState.selectedCampaign = campaignId;
+  G.screen = 'campaignRole';
+  render();
+}
+
+// ============================================
+// 2. ROLE SELECTION
+// ============================================
+function renderCampaignRoleSelect() {
+  var data = getCampaignData();
+  if (!data) return;
+  var roles = data.roles || [];
+  var campaignId = (G.campaignState || {}).selectedCampaign;
+  var campaign = getCampaignById(campaignId);
+  var selectedRole = (G.campaignState || {}).selectedRole;
+
+  var roleCards = roles.map(function(r) {
+    var sel = selectedRole === r.id ? 'selected' : '';
+    return `<div class="role-card ${sel}" onclick="selectCampaignRole('${r.id}')">
+      <div class="role-emoji">${r.emoji}</div>
+      <div class="role-name">${r.name}</div>
+      <div class="role-desc">${r.desc}</div>
+      <div class="role-special">✨ ${r.special}</div>
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `<div class="campaign-screen-wrap">
+    <div class="role-select">
+      <button class="back-btn" onclick="G.screen='campaign';render()">← 월드맵으로</button>
+      <div class="role-select-title">직업 선택</div>
+      <div class="role-select-subtitle">${campaign ? campaign.title : ''} — 어떤 역할로 도전하겠습니까?</div>
+      <div class="role-grid">${roleCards}</div>
+      <button class="role-confirm-btn" id="roleConfirmBtn" onclick="confirmCampaignRole()"
+        ${selectedRole ? '' : 'disabled'}>
+        ${selectedRole ? '출동 준비 완료!' : '직업을 선택하세요'}
+      </button>
+    </div>
+  </div>`;
+}
+
+function selectCampaignRole(roleId) {
+  G.campaignState = G.campaignState || {};
+  G.campaignState.selectedRole = roleId;
+  render();
+}
+
+function confirmCampaignRole() {
+  var state = G.campaignState || {};
+  if (!state.selectedRole || !state.selectedCampaign) return;
+
+  // Initialize campaign state
+  G.campaign = {
+    id: state.selectedCampaign,
+    role: state.selectedRole,
+    currentChapter: 0,
+    hp: 100,
+    maxHp: 100,
+    xp: 0,
+    level: 1,
+    items: ['hint', 'medkit'], // Starting items
+    score: 0,
+    chaptersCompleted: [],
+    startedAt: Date.now(),
+    totalCorrect: 0,
+    totalAnswered: 0
+  };
+
+  G.screen = 'campaignChapters';
+  render();
+}
+
+// ============================================
+// 3. CHAPTER MAP
+// ============================================
+function renderCampaignChapterMap() {
+  var c = G.campaign;
+  if (!c) { G.screen = 'campaign'; render(); return; }
+
+  var campaign = getCampaignById(c.id);
+  if (!campaign) { G.screen = 'campaign'; render(); return; }
+
+  var chapters = campaign.chapters || [];
+  var completedChapters = c.chaptersCompleted || [];
+
+  var chapterNodes = chapters.map(function(ch, idx) {
+    var isDone = completedChapters.indexOf(idx) >= 0;
+    var isActive = idx === c.currentChapter;
+    var isLocked = !isDone && idx > c.currentChapter;
+    var cls = isDone ? 'completed' : isActive ? 'active' : isLocked ? 'locked' : '';
+    var numClass = isDone ? 'completed' : isActive ? 'active' : 'locked';
+    var statusText = isDone ? '✅ 완료' : isActive ? '▶ 현재' : '🔒';
+    var onclick = (!isLocked || isDone) ? 'enterCampaignChapter(' + idx + ')' : '';
+
+    return `<div class="chapter-node ${cls}" ${onclick ? 'onclick="' + onclick + '"' : ''}>
+      <div class="ch-number ${numClass}">${idx + 1}</div>
+      <div class="ch-info">
+        <div class="ch-title">${ch.title || 'Chapter ' + (idx + 1)}</div>
+        <div class="ch-subtitle">${ch.subtitle || ch.levelTitle || ''}</div>
+      </div>
+      <div class="ch-status">${statusText}</div>
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `<div class="campaign-screen-wrap">
+    <div class="chapter-map">
+      <button class="back-btn" onclick="G.screen='campaign';render()">← 월드맵으로</button>
+      <div class="chapter-map-header">
+        <div class="campaign-icon">${campaign.icon || '⚔️'}</div>
+        <h2>${campaign.title || ''}</h2>
+        <p style="color:#8b8fa3;font-size:0.8rem">${campaign.subtitle || ''}</p>
+      </div>
+      <div class="chapter-path">${chapterNodes}</div>
+    </div>
+    ${renderCampaignPlayerHUD()}
+  </div>`;
+}
+
+function enterCampaignChapter(chapterIdx) {
+  if (!G.campaign) return;
+  G.campaign.currentChapter = chapterIdx;
+  G.campaign.currentCinematicSeen = false;
+  G.screen = 'campaignCinematic';
+  render();
+}
+
+// ============================================
+// 4. CINEMATIC
+// ============================================
+function renderCampaignCinematic() {
+  var c = G.campaign;
+  if (!c) { G.screen = 'campaign'; render(); return; }
+
+  var chapter = getCampaignChapterData(c.id, c.currentChapter);
+  if (!chapter) { G.screen = 'campaignBriefing'; render(); return; }
+
+  var cin = chapter.cinematic || {};
+  var roleDialogue = (cin.roleDialogue || {})[c.role] || '';
+  var data = getCampaignData();
+  var roles = data ? (data.roles || []) : [];
+  var role = roles.find(function(r) { return r.id === c.role; }) || {};
+
+  var dialogueHtml = roleDialogue ? `
+    <div class="cinematic-dialogue">
+      <div class="speaker">${role.emoji || ''} ${role.name || ''}</div>
+      <div class="speech">${roleDialogue}</div>
+    </div>` : '';
+
+  var atmosphereHtml = cin.atmosphere ? `
+    <div style="text-align:center;font-size:0.8rem;color:#6b7080;font-style:italic;margin-bottom:16px">
+      🌫️ ${cin.atmosphere}
+    </div>` : '';
+
+  app.innerHTML = `<div class="campaign-screen-wrap">
+    <div class="cinematic">
+      <div class="cinematic-chapter-tag">Chapter ${c.currentChapter + 1}</div>
+      <div class="cinematic-title">${chapter.title || ''}</div>
+      ${atmosphereHtml}
+      <div class="cinematic-text">${cin.text || ''}</div>
+      ${dialogueHtml}
+      <button class="cinematic-continue" onclick="G.screen='campaignBriefing';render()">계속 ▶</button>
+    </div>
+    ${renderCampaignPlayerHUD()}
+  </div>`;
+}
+
+// ============================================
+// 5. BRIEFING
+// ============================================
+function renderCampaignBriefing() {
+  var c = G.campaign;
+  if (!c) { G.screen = 'campaign'; render(); return; }
+
+  var chapter = getCampaignChapterData(c.id, c.currentChapter);
+  if (!chapter) { G.screen = 'campaignChapters'; render(); return; }
+
+  var br = chapter.briefing || {};
+  var hazards = (br.hazards || []).map(function(h) { return '<li>' + h + '</li>'; }).join('');
+  var resources = (br.resources || []).map(function(r) { return '<li style="margin:2px 0">' + r + '</li>'; }).join('');
+
+  app.innerHTML = `<div class="campaign-screen-wrap">
+    <div class="briefing">
+      <button class="back-btn" onclick="G.screen='campaignCinematic';render()">← 시네마틱으로</button>
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:0.75rem;color:#448aff;letter-spacing:2px;text-transform:uppercase">임무 브리핑</div>
+        <div style="font-size:1.2rem;font-weight:700;color:#eef0f6;margin-top:4px">${chapter.title || ''}</div>
+      </div>
+      <div class="briefing-card">
+        <h3>🎯 상황 보고</h3>
+        <div class="briefing-item"><span class="label">상황</span><span class="value" style="max-width:60%;text-align:right">${br.situation || ''}</span></div>
+        ${br.patientCount ? '<div class="briefing-item"><span class="label">환자 수</span><span class="value">' + br.patientCount + '</span></div>' : ''}
+        ${br.time ? '<div class="briefing-item"><span class="label">시각</span><span class="value">' + br.time + '</span></div>' : ''}
+        <div class="briefing-item" style="border:none"><span class="label">목표</span><span class="value" style="max-width:60%;text-align:right;color:#ffd700">${br.objective || ''}</span></div>
+      </div>
+      ${hazards ? `<div class="briefing-card">
+        <h3>⚠️ 위험 요소</h3>
+        <ul class="briefing-list">${hazards}</ul>
+      </div>` : ''}
+      ${resources ? `<div class="briefing-card">
+        <h3>🚒 사용 가능 자원</h3>
+        <ul style="list-style:none">${resources}</ul>
+      </div>` : ''}
+      <button class="briefing-start-btn" onclick="startCampaignBattle()">⚔️ 작전 시작!</button>
+    </div>
+    ${renderCampaignPlayerHUD()}
+  </div>`;
+}
+
+// ============================================
+// 6. BATTLE (CORE FF-STYLE GAMEPLAY)
+// ============================================
+function startCampaignBattle() {
+  var c = G.campaign;
+  if (!c) return;
+  var chapter = getCampaignChapterData(c.id, c.currentChapter);
+  if (!chapter) return;
+
+  // Initialize battle state
+  var questions = chapter.challenges || [];
+  c.battleQuestions = questions.slice(); // copy
+  c.currentQuestion = 0;
+  c.chapterScore = 0;
+  c.chapterCorrect = 0;
+  c.chapterXpGained = 0;
+  c.battleStartTime = Date.now();
+  c.answered = false;
+  c.selectedAnswer = null;
+
+  // Enemy HP = number of questions * 20
+  c.enemyHp = questions.length * 20;
+  c.enemyMaxHp = c.enemyHp;
+
+  // Restore player HP for new chapter (not carried over)
+  // Actually HP carries — that's the challenge!
+
+  G.screen = 'campaignBattle';
+  Tracker.startMode('campaign_' + c.id + '_ch' + c.currentChapter);
+  render();
+}
+
+function renderCampaignBattle() {
+  var c = G.campaign;
+  if (!c) { G.screen = 'campaign'; render(); return; }
+
+  var questions = c.battleQuestions || [];
+  var qIdx = c.currentQuestion || 0;
+
+  if (qIdx >= questions.length) {
+    showCampaignChapterResult(true);
+    return;
+  }
+
+  var q = questions[qIdx];
+  var answered = c.answered || false;
+  var selected = c.selectedAnswer;
+
+  var campaign = getCampaignById(c.id);
+  var chapter = getCampaignChapterData(c.id, c.currentChapter);
+
+  // Enemy sprite based on campaign
+  var enemyEmojis = {
+    urban_fire: '🔥', earthquake: '🌍', chemical: '☣️', flood: '🌊',
+    mass_casualty: '💀', nuclear: '☢️'
+  };
+  var enemyEmoji = enemyEmojis[c.id] || (campaign ? campaign.icon : '💀') || '👹';
+  var enemyName = campaign ? campaign.title.replace(/^.+?\s/, '') + ' 위기' : '재난';
+
+  var hpPct = Math.round(((c.hp || 0) / (c.maxHp || 100)) * 100);
+  var enemyHpPct = Math.round(((c.enemyHp || 0) / (c.enemyMaxHp || 1)) * 100);
+
+  var labels = ['A', 'B', 'C', 'D'];
+  var options = (q.o || []);
+
+  // Hint: hide one wrong answer
+  var hiddenIdx = -1;
+  if (c.hintActive && !answered) {
+    // Find a wrong answer to hide
+    for (var hi = 0; hi < options.length; hi++) {
+      if (hi !== q.a) { hiddenIdx = hi; break; }
+    }
+    c.hintActive = false;
+  }
+
+  var optionHtml = options.map(function(opt, i) {
+    if (i === hiddenIdx) return ''; // Hidden by hint
+    var cls = '';
+    if (answered) {
+      if (i === q.a) cls = 'correct';
+      else if (i === selected) cls = 'wrong';
+    }
+    var disabledAttr = answered ? 'disabled' : '';
+    return `<button class="battle-option ${cls}" ${disabledAttr} onclick="answerCampaignBattle(${i})">
+      <span class="opt-label">${labels[i]}</span>
+      <span>${opt}</span>
+    </button>`;
+  }).join('');
+
+  var explanationHtml = '';
+  if (answered && q.exp) {
+    var isCorrect = selected === q.a;
+    explanationHtml = `<div style="background:rgba(${isCorrect?'0,230,118':'255,59,92'},0.08);border:1px solid rgba(${isCorrect?'0,230,118':'255,59,92'},0.3);border-radius:8px;padding:12px;margin-top:8px;font-size:0.8rem;color:#c8cad8;line-height:1.6">
+      <strong style="color:${isCorrect?'#00e676':'#ff3b5c'}">${isCorrect?'✅ 정답!':'❌ 오답!'}</strong><br>${q.exp}
+    </div>`;
+  }
+
+  var roleBonusHtml = '';
+  if (answered && selected === q.a && q.roleBonus && q.roleBonus[c.role]) {
+    roleBonusHtml = `<div style="background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.3);border-radius:8px;padding:8px;margin-top:6px;font-size:0.75rem;color:#ffd700">
+      ⭐ ${q.roleBonus[c.role]}
+    </div>`;
+  }
+
+  var nextBtn = '';
+  if (answered) {
+    nextBtn = `<button onclick="nextCampaignQuestion()" style="display:block;width:100%;margin-top:12px;padding:12px;background:linear-gradient(135deg,#448aff,#b388ff);color:#fff;font-weight:700;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem">
+      ${qIdx + 1 >= questions.length ? '챕터 결과 보기 →' : '다음 질문 →'}
+    </button>`;
+  }
+
+  // Item use hint
+  var doubleXPIndicator = (c.doubleXPCount || 0) > 0 ? `<span style="color:#ffd700;font-size:0.75rem">⭐ 2배 XP (${c.doubleXPCount}회 남음)</span>` : '';
+  var shieldIndicator = c.shieldActive ? `<span style="color:#b388ff;font-size:0.75rem">🛡️ 방호복 발동 중</span>` : '';
+
+  // Narrative for scenario type
+  var narrativeHtml = '';
+  if (q.narrative) {
+    narrativeHtml = `<div style="background:rgba(68,138,255,0.05);border:1px solid rgba(68,138,255,0.2);border-radius:8px;padding:12px;margin-bottom:12px;font-size:0.85rem;color:#c8cad8;line-height:1.6;white-space:pre-line">${q.narrative}</div>`;
+  }
+
+  app.innerHTML = `<div class="campaign-screen-wrap">
+    <div class="battle-screen">
+      <!-- Enemy -->
+      <div class="battle-enemy">
+        <div class="enemy-sprite" id="enemySprite">${enemyEmoji}</div>
+        <div class="enemy-name">${enemyName}</div>
+        <div style="font-size:0.7rem;color:#6b7080;margin-bottom:4px">문제 ${qIdx + 1} / ${questions.length}</div>
+        <div class="battle-hp-bar">
+          <div class="battle-hp-fill enemy" id="enemyHpFill" style="width:${enemyHpPct}%"></div>
+        </div>
+        <div style="font-size:0.7rem;color:#ff3b5c">적 HP: ${c.enemyHp}/${c.enemyMaxHp}</div>
+      </div>
+
+      <!-- Question -->
+      <div class="battle-question">
+        <div class="q-category">${q.type || 'QUIZ'} ${doubleXPIndicator} ${shieldIndicator}</div>
+        ${narrativeHtml}
+        <div class="q-text">${q.q}</div>
+      </div>
+
+      <!-- Options -->
+      <div class="battle-options">${optionHtml}</div>
+
+      ${explanationHtml}
+      ${roleBonusHtml}
+      ${nextBtn}
+    </div>
+    ${renderCampaignPlayerHUD()}
+  </div>`;
+}
+
+function answerCampaignBattle(idx) {
+  var c = G.campaign;
+  if (!c || c.answered) return;
+
+  var q = (c.battleQuestions || [])[c.currentQuestion || 0];
+  if (!q) return;
+
+  c.answered = true;
+  c.selectedAnswer = idx;
+  c.totalAnswered = (c.totalAnswered || 0) + 1;
+
+  var correct = idx === q.a;
+  var difficulty = q.difficulty || 'medium';
+
+  Tracker.recordAnswer('campaign_' + c.id + '_q' + c.currentQuestion, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    c.totalCorrect = (c.totalCorrect || 0) + 1;
+    c.chapterCorrect = (c.chapterCorrect || 0) + 1;
+
+    // XP calculation
+    var baseXP = q.xp || 100;
+    var roleBonus = checkRoleBonus(c.role, q);
+    var multiplier = (c.doubleXPCount || 0) > 0 ? 2 : 1;
+    if (roleBonus) multiplier *= 1.5;
+    var xpGained = Math.round(baseXP * multiplier);
+
+    c.xp = (c.xp || 0) + xpGained;
+    c.chapterXpGained = (c.chapterXpGained || 0) + xpGained;
+    c.chapterScore = (c.chapterScore || 0) + (q.xp || 100);
+
+    if ((c.doubleXPCount || 0) > 0) c.doubleXPCount--;
+
+    // Enemy takes damage
+    var dmg = calculateBattleDamage(true, c.role, difficulty);
+    c.enemyHp = Math.max(0, (c.enemyHp || 0) - dmg);
+
+    addScore(q.xp || 100);
+    addXP(xpGained);
+    updateStreak(true);
+
+    // Animate enemy hit
+    setTimeout(function() {
+      var sprite = document.getElementById('enemySprite');
+      if (sprite) sprite.style.animation = 'enemyHit 0.5s ease, enemyFloat 3s ease-in-out infinite 0.5s';
+      var fill = document.getElementById('enemyHpFill');
+      if (fill) {
+        var pct = Math.round(((c.enemyHp || 0) / (c.enemyMaxHp || 1)) * 100);
+        fill.style.width = pct + '%';
+      }
+    }, 100);
+
+    // Level up check
+    var lvUp = levelUpCheck();
+    if (lvUp) {
+      showAchievement('🌟', '레벨 업!', lvUp + ' 달성!');
+    }
+
+  } else {
+    sfx('wrong');
+
+    if (c.shieldActive) {
+      c.shieldActive = false;
+      showAchievement('🛡️', '방호복 발동!', 'HP 손실 면제');
+    } else {
+      var dmg = calculateBattleDamage(false, c.role, difficulty);
+      c.hp = Math.max(0, (c.hp || 0) - dmg);
+      shakeScreen();
+
+      // Antidote: auto-revive at near-death
+      if (c.hp <= 0 && c.antidoteReady) {
+        c.hp = Math.floor((c.maxHp || 100) * 0.1);
+        c.antidoteReady = false;
+        showAchievement('💉', '해독제 발동!', 'HP 10%로 부활!');
+      }
+    }
+    updateStreak(false);
+    addScore(-20);
+  }
+
+  checkAchievements();
+  render();
+
+  // Player death check after render
+  if ((c.hp || 0) <= 0) {
+    setTimeout(function() {
+      showCampaignChapterResult(false);
+    }, 1500);
+  }
+}
+
+function nextCampaignQuestion() {
+  var c = G.campaign;
+  if (!c) return;
+  c.currentQuestion = (c.currentQuestion || 0) + 1;
+  c.answered = false;
+  c.selectedAnswer = null;
+
+  var questions = c.battleQuestions || [];
+  if (c.currentQuestion >= questions.length) {
+    showCampaignChapterResult(true);
+    return;
+  }
+
+  Tracker.startQuestion();
+  render();
+}
+
+// ============================================
+// 7. CHAPTER RESULT
+// ============================================
+function showCampaignChapterResult(success) {
+  var c = G.campaign;
+  if (!c) return;
+  c.lastResultSuccess = success;
+
+  if (success) {
+    // Mark chapter as completed
+    if (c.chaptersCompleted.indexOf(c.currentChapter) < 0) {
+      c.chaptersCompleted.push(c.currentChapter);
+    }
+
+    // Save to global progress
+    var prog = getCampaignProgress();
+    if (!prog[c.id]) prog[c.id] = { chaptersCompleted: [], bestScore: 0 };
+    if (prog[c.id].chaptersCompleted.indexOf(c.currentChapter) < 0) {
+      prog[c.id].chaptersCompleted.push(c.currentChapter);
+    }
+    prog[c.id].bestScore = Math.max(prog[c.id].bestScore || 0, c.score || 0);
+    saveCampaignProgress();
+
+    // Check if this was the last chapter
+    var campaign = getCampaignById(c.id);
+    var totalChapters = campaign ? (campaign.chapters || []).length : 6;
+    if (c.chaptersCompleted.length >= totalChapters) {
+      G.screen = 'campaignComplete';
+      Tracker.endMode(c.chapterScore || 0);
+      render();
+      return;
+    }
+
+    // Earn a random item reward
+    var rewardItems = ['hint', 'medkit', 'timefreeze', 'shield', 'doubleXP'];
+    var rewardItem = rewardItems[Math.floor(Math.random() * rewardItems.length)];
+    c.lastRewardItem = rewardItem;
+    if ((c.items || []).length < 8) {
+      c.items = c.items || [];
+      c.items.push(rewardItem);
+    }
+
+    confetti();
+    addXP(200);
+  }
+
+  Tracker.endMode(c.chapterScore || 0);
+  G.screen = 'campaignResult';
+  render();
+}
+
+function renderCampaignChapterResult() {
+  var c = G.campaign;
+  if (!c) { G.screen = 'campaign'; render(); return; }
+
+  var success = c.lastResultSuccess;
+  var chapter = getCampaignChapterData(c.id, c.currentChapter);
+  var totalQ = (c.battleQuestions || []).length;
+  var correct = c.chapterCorrect || 0;
+  var accuracy = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
+  var elapsed = Math.round(((Date.now() - (c.battleStartTime || Date.now())) / 1000));
+  var minutes = Math.floor(elapsed / 60);
+  var seconds = elapsed % 60;
+
+  var icon = success ? '🏆' : '💀';
+  var title = success ? '챕터 완료!' : '임무 실패...';
+  var titleColor = success ? '#ffd700' : '#ff3b5c';
+
+  // Success narrative
+  var narrativeText = success
+    ? '임무를 성공적으로 완수했습니다. 훌륭한 대응이었습니다.\n현장에서의 신속한 판단이 많은 생명을 구했습니다.'
+    : '임무 중 HP가 소진되었습니다. 재난 현장에서의 의료 대응은 험난합니다.\n다시 도전하여 더 나은 결과를 만들어보세요.';
+
+  var data = getCampaignData();
+  var itemData = data ? (data.items || []) : [];
+  var rewardItemId = c.lastRewardItem;
+  var rewardItemDef = rewardItemId ? itemData.find(function(d) { return d.id === rewardItemId; }) : null;
+
+  var lvUp = levelUpCheck();
+  var levelUpHtml = lvUp ? `<div class="level-up-banner">
+    <h3>🌟 레벨 업!</h3>
+    <p>${lvUp} 칭호를 획득했습니다!</p>
+  </div>` : '';
+
+  var rewardsHtml = success && rewardItemDef ? `
+    <div class="result-rewards">
+      <h3>🎁 챕터 보상</h3>
+      <div class="reward-item">📦 아이템 획득: ${rewardItemDef.name}</div>
+      <div class="reward-item">✨ XP +${c.chapterXpGained || 0}</div>
+      <div class="reward-item">⭐ 점수 +${c.chapterScore || 0}</div>
+    </div>` : '';
+
+  var nextChapter = c.currentChapter + 1;
+  var campaign = getCampaignById(c.id);
+  var hasNextChapter = campaign && nextChapter < (campaign.chapters || []).length;
+
+  var actionBtns = success
+    ? `${hasNextChapter ? `<button onclick="enterCampaignChapter(${nextChapter})" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ffd700,#ff8c00);color:#000;font-weight:700;border:none;border-radius:12px;cursor:pointer">다음 챕터 →</button>` : ''}
+       <button onclick="G.screen='campaignChapters';render()" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#eef0f6;border:none;border-radius:12px;cursor:pointer">챕터 맵으로</button>`
+    : `<button onclick="startCampaignBattle()" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ff3b5c,#ff1744);color:#fff;font-weight:700;border:none;border-radius:12px;cursor:pointer">🔄 재도전</button>
+       <button onclick="G.screen='campaignChapters';render()" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#eef0f6;border:none;border-radius:12px;cursor:pointer">챕터 맵으로</button>`;
+
+  app.innerHTML = `<div class="campaign-screen-wrap">
+    <div class="chapter-result">
+      <div class="result-icon">${icon}</div>
+      <h2 style="color:${titleColor}">${title}</h2>
+      <p style="color:#8b8fa3;font-size:0.85rem">${chapter ? chapter.title : ''}</p>
+      <div class="result-narrative">${narrativeText}</div>
+      <div class="result-stats">
+        <div class="result-stat">
+          <div class="rs-value" style="color:#ffd700">${correct}/${totalQ}</div>
+          <div class="rs-label">정답</div>
+        </div>
+        <div class="result-stat">
+          <div class="rs-value" style="color:${accuracy >= 70 ? '#00e676' : '#ff3b5c'}">${accuracy}%</div>
+          <div class="rs-label">정확도</div>
+        </div>
+        <div class="result-stat">
+          <div class="rs-value" style="color:#448aff">${minutes}:${seconds < 10 ? '0' + seconds : seconds}</div>
+          <div class="rs-label">소요 시간</div>
+        </div>
+      </div>
+      ${levelUpHtml}
+      ${rewardsHtml}
+      <div style="margin-top:16px">${actionBtns}</div>
+    </div>
+    ${renderCampaignPlayerHUD()}
+  </div>`;
+}
+
+// ============================================
+// 8. CAMPAIGN COMPLETE
+// ============================================
+function renderCampaignComplete() {
+  var c = G.campaign;
+  if (!c) { G.screen = 'campaign'; render(); return; }
+
+  var campaign = getCampaignById(c.id);
+  var data = getCampaignData();
+  var roles = data ? (data.roles || []) : [];
+  var role = roles.find(function(r) { return r.id === c.role; }) || {};
+
+  var totalQ = (c.battleQuestions || []).length;
+  var correct = c.totalCorrect || 0;
+  var totalAnswered = c.totalAnswered || 1;
+  var accuracy = Math.round((correct / Math.max(totalAnswered, 1)) * 100);
+  var elapsed = Math.round(((Date.now() - (c.startedAt || Date.now())) / 60000));
+  var finalTitle = role.maxTitle || '재난 대응 전문가';
+  var badge = campaign ? (campaign.completionBadge || '🏆 캠페인 완료') : '🏆 캠페인 완료';
+
+  confetti();
+  addXP(500);
+  addScore(1000);
+
+  app.innerHTML = `<div class="campaign-screen-wrap">
+    <div class="campaign-complete">
+      <div class="trophy">🏆</div>
+      <h1>캠페인 완료!</h1>
+      <div class="final-title">${badge}</div>
+      <div style="font-size:1.1rem;color:#eef0f6;margin-bottom:8px">${finalTitle}</div>
+      <div style="font-size:0.85rem;color:#8b8fa3;margin-bottom:24px">${role.name || ''} ${role.emoji || ''}</div>
+
+      <div style="background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.2);border-radius:12px;padding:20px;margin-bottom:20px">
+        <div style="font-size:0.8rem;color:#ffd700;margin-bottom:12px;letter-spacing:1px">캠페인 통계</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div style="text-align:center">
+            <div style="font-size:1.3rem;font-weight:700;color:#00e676">${accuracy}%</div>
+            <div style="font-size:0.7rem;color:#8b8fa3">정확도</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:1.3rem;font-weight:700;color:#ffd700">Lv.${c.level || 1}</div>
+            <div style="font-size:0.7rem;color:#8b8fa3">최종 레벨</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:1.3rem;font-weight:700;color:#448aff">${elapsed}분</div>
+            <div style="font-size:0.7rem;color:#8b8fa3">플레이 시간</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,rgba(255,215,0,0.1),rgba(255,140,0,0.05));border:1px solid rgba(255,215,0,0.3);border-radius:16px;padding:20px;margin-bottom:24px">
+        <div style="font-size:2rem;margin-bottom:8px">${role.emoji || '⭐'}</div>
+        <div style="font-size:0.85rem;color:#c8cad8;line-height:1.7">${role.flavor || '탁월한 재난 대응 능력을 증명했습니다.'}</div>
+      </div>
+
+      <button onclick="G.screen='campaign';render()" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ffd700,#ff8c00);color:#000;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-size:1rem">
+        🌍 월드맵으로
+      </button>
+      <button onclick="G.screen='modes';render()" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b8fa3;border-radius:12px;cursor:pointer">
+        🏠 미션 선택으로
+      </button>
+    </div>
+  </div>`;
+
+  G.screen = 'campaignComplete';
+  G.modesCompleted.add('campaign_' + (c.id || ''));
+}
+
+// ============================================
+// END OF JRPG CAMPAIGN ENGINE
+// ============================================
