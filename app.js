@@ -912,6 +912,15 @@ function render() {
   else if (s === 'emergo') renderEmergoPhase();
   else if (s === 'emergoResults') {} // already rendered
   else if (s === 'results') renderResults();
+  else if (s === 'cbrneAdv') renderCBRNEAdv();
+  else if (s === 'cbrneAdvScenario') renderCBRNEAdvScenario();
+  else if (s === 'cbrneAdvBoss') renderCBRNEAdvBoss();
+  else if (s === 'tactical') renderTactical();
+  else if (s === 'tacticalScenario') renderTacticalScenario();
+  else if (s === 'tacticalBoss') renderTacticalBoss();
+  else if (s === 'ctm') renderCTM();
+  else if (s === 'ctmScenario') renderCTMScenario();
+  else if (s === 'ctmBoss') renderCTMBoss();
 }
 
 // ---- INTRO ----
@@ -1063,6 +1072,9 @@ function renderModeSelect() {
     { key: 'ethics', icon: '⚖️', title: '윤리적 딜레마', desc: '재난 상황의 극한 윤리적 결정을 내려라', tag: '의료윤리', color: 'cyan' },
     { key: 'leadership', icon: '🎖️', title: '리더십 챌린지', desc: '위기 상황에서 팀을 이끌어라', tag: '리더십', color: 'purple' },
     { key: 'teamwork', icon: '🤝', title: '팀워크 미션', desc: '다학제 팀과 협력하여 환자를 구출하라', tag: '팀 협력', color: 'amber' },
+    { key: 'cbrneAdv', icon: '☣️', title: 'CBRNE 심화', desc: 'CBRNE 5대 위협 전문 퀴즈 & 시나리오', tag: 'CBRNE 전문', color: 'orange' },
+    { key: 'tactical', icon: '🎯', title: '전술의학', desc: 'TCCC/TECC 전술 현장 응급의료', tag: '전술의학', color: 'green' },
+    { key: 'ctm', icon: '🛡️', title: '대테러의학', desc: '대테러 의학 전문 지식과 대응', tag: 'CTM', color: 'red' },
   ];
 
   const lb = [...G.leaderboard];
@@ -1178,6 +1190,25 @@ function enterMode(mode) {
     const pool = [...QUIZ_QUESTIONS].sort(() => Math.random() - 0.5);
     G.bossQ = pool.slice(0, 10);
     G.bossIdx = 0; G.bossScore = 0; G.bossActive = true;
+  }
+  if (mode === 'cbrneAdv') {
+    const content = window.CBRNE_CONTENT;
+    if (!content) { alert('CBRNE 콘텐츠 로딩 실패'); return; }
+    const allQ = Object.values(content.questions).flat();
+    G.advQ = [...allQ].sort(() => Math.random() - 0.5).slice(0, 15);
+    G.advIdx = 0; G.advScore = 0; G.advAnswered = false;
+  }
+  if (mode === 'tactical') {
+    const content = window.TACTICAL_CTM_CONTENT;
+    if (!content) { alert('전술의학 콘텐츠 로딩 실패'); return; }
+    G.tacQ = [...content.tacticalQuestions].sort(() => Math.random() - 0.5).slice(0, 15);
+    G.tacIdx = 0; G.tacScore = 0; G.tacAnswered = false;
+  }
+  if (mode === 'ctm') {
+    const content = window.TACTICAL_CTM_CONTENT;
+    if (!content) { alert('대테러의학 콘텐츠 로딩 실패'); return; }
+    G.ctmQ = [...content.ctmQuestions].sort(() => Math.random() - 0.5).slice(0, 15);
+    G.ctmIdx = 0; G.ctmScore = 0; G.ctmAnswered = false;
   }
   Tracker.startQuestion();
   render();
@@ -2961,3 +2992,1362 @@ function showEmergoFinalResults() {
 document.addEventListener('DOMContentLoaded', () => {
   render();
 });
+
+// ============================================
+// NEW GAME MODES: CBRNE심화 / 전술의학 / 대테러의학
+// ============================================
+
+// ---- HELPER: flatten CBRNE questions ----
+function getCBRNEFlatQuestions() {
+  const content = window.CBRNE_CONTENT;
+  if (!content) return [];
+  return Object.values(content.questions).flat();
+}
+
+// ============================================
+// CBRNE 심화 QUIZ
+// ============================================
+function renderCBRNEAdv() {
+  const total = (G.advQ || []).length;
+  const q = (G.advQ || [])[G.advIdx];
+  if (!q || G.advIdx >= total) { showCBRNEAdvHub(); return; }
+
+  const mentorLine = G.advIdx === 0
+    ? 'CBRNE 5대 위협 전문 퀴즈다! 화학·생물·방사능·핵·폭발물 지식을 테스트한다.'
+    : G.advAnswered ? '' : rnd(CHARS.mentor.hints);
+
+  app.innerHTML = `
+    ${renderHUD('advTimer')}
+    <div class="screen quiz-game">
+      ${G.advIdx === 0 ? charBubble('mentor', mentorLine) : ''}
+      <div class="quiz-progress-bar">
+        <span class="quiz-pbar-num">${G.advIdx + 1}/${total}</span>
+        <div class="pbar-track"><div class="pbar-fill" style="width:${(G.advIdx / total) * 100}%"></div></div>
+      </div>
+      <div class="quiz-q-card anim-in">
+        ${q.category ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px">☣️ ${q.category.toUpperCase()}</div>` : ''}
+        <div class="quiz-q-text">${q.q}</div>
+        <div class="quiz-opts">
+          ${q.o.map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            let cls = '';
+            if (G.advAnswered) {
+              if (i === q.a) cls = 'correct';
+              else if (i === G._advSelected && i !== q.a) cls = 'wrong';
+            }
+            return `<button class="q-opt ${cls}" onclick="answerCBRNEAdv(${i})" ${G.advAnswered ? 'disabled' : ''}>
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${opt}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        ${G.advAnswered ? `
+          <div class="quiz-explanation">${q.exp || ''}</div>
+          <button class="quiz-next-btn" onclick="nextCBRNEAdv()">다음 문제 →</button>
+        ` : ''}
+      </div>
+    </div>`;
+
+  if (!G.advAnswered) {
+    startCountdown('advTimer', 20 + getTimerBonus('cbrneAdv'), updateTimerDisplay, () => {
+      G.advAnswered = true;
+      G._advSelected = -1;
+      updateStreak(false);
+      sfx('wrong');
+      shakeScreen();
+      render();
+    });
+  }
+}
+
+function answerCBRNEAdv(idx) {
+  if (G.advAnswered) return;
+  G.advAnswered = true;
+  G._advSelected = idx;
+  stopTimer('advTimer');
+
+  const q = G.advQ[G.advIdx];
+  const correct = idx === q.a;
+
+  Tracker.recordAnswer(`cbrneAdv_${G.advIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    const timeBonus = Math.max(0, G.advTimer * 5);
+    addScore(100 + timeBonus);
+    addXP(25);
+    G.advScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    addScore(-10);
+    updateStreak(false);
+  }
+  checkAchievements();
+  render();
+}
+
+function nextCBRNEAdv() {
+  G.advIdx++;
+  G.advAnswered = false;
+  G._advSelected = undefined;
+  Tracker.startQuestion();
+  render();
+}
+
+function showCBRNEAdvHub() {
+  stopTimer('advTimer');
+  G.modesCompleted.add('cbrneAdv');
+  const total = (G.advQ || []).length;
+  const pct = Math.round(((G.advScore || 0) / Math.max(total, 1)) * 100);
+  if (pct === 100 && total > 0) G.perfectModes++;
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  Tracker.endMode(G.advScore || 0);
+  checkAchievements();
+  advanceStoryAct();
+  if (grade === 'S' || grade === 'A') confetti();
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      ${charBubble('mentor', grade === 'S' || grade === 'A' ? '적보식별! CBRNE 전문가다!' : '기초를 다지고 다시 도전해바!', { success: grade === 'S' || grade === 'A' })}
+      <div class="result-big anim-in">☣️</div>
+      <div class="result-sub">CBRNE 심화 퀴즈 완료!</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.advScore || 0}/${total}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.maxStreak}</div><div class="lbl">최대 연속</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="enterMode('cbrneAdv')">🔄 퀴즈 재도전</button>
+        <button class="btn-outline" onclick="startCBRNEAdvScenario()">📖 시나리오 모드</button>
+        <button class="btn-outline" onclick="startCBRNEAdvBoss()">👹 보스전</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+
+function startCBRNEAdvScenario() {
+  const content = window.CBRNE_CONTENT;
+  if (!content || !content.scenarios || content.scenarios.length === 0) {
+    alert('CBRNE 시나리오를 읽을 수 없습니다.'); return;
+  }
+  G.advScenIdx = 0;
+  G.advScenStepIdx = 0;
+  G.advScenScore = 0;
+  G.advScenAnswered = false;
+  G.screen = 'cbrneAdvScenario';
+  Tracker.startMode('cbrneAdvScenario');
+  render();
+}
+
+function startCBRNEAdvBoss() {
+  const content = window.CBRNE_CONTENT;
+  if (!content || !content.bossBattles || content.bossBattles.length === 0) {
+    alert('CBRNE 보스를 로드할 수 없습니다.'); return;
+  }
+  const boss = content.bossBattles[Math.floor(Math.random() * content.bossBattles.length)];
+  // Flatten all phase questions into a single pool
+  const phaseQs = boss.phases.flatMap(ph => {
+    // Phase questions can be objects with q/o/a/exp or questionIds (references)
+    if (ph.questions && Array.isArray(ph.questions)) return ph.questions;
+    if (ph.questionIds && Array.isArray(ph.questionIds)) {
+      return ph.questionIds.map(id => content.getQuestionById ? content.getQuestionById(id) : null).filter(Boolean);
+    }
+    return [];
+  });
+  G.advBoss = boss;
+  G.advBossQ = phaseQs.length > 0 ? phaseQs.slice(0, 10) : [];
+  G.advBossIdx = 0;
+  G.advBossHp = boss.maxHp;
+  G.advBossPlayerHp = 100;
+  G.advBossScore = 0;
+  G.screen = 'cbrneAdvBoss';
+  Tracker.startMode('cbrneAdvBoss');
+  render();
+}
+
+// ============================================
+// CBRNE 심화 시나리오
+// ============================================
+function renderCBRNEAdvScenario() {
+  const content = window.CBRNE_CONTENT;
+  if (!content) { G.screen = 'modes'; render(); return; }
+  const scenarios = content.scenarios;
+  if (!scenarios || scenarios.length === 0) { G.screen = 'modes'; render(); return; }
+  if (G.advScenIdx >= scenarios.length) { showCBRNEAdvScenarioResults(); return; }
+
+  const sc = scenarios[G.advScenIdx];
+  const steps = sc.steps || [];
+  if (G.advScenStepIdx >= steps.length) {
+    G.advScenIdx++;
+    G.advScenStepIdx = 0;
+    G.advScenAnswered = false;
+    if (G.advScenIdx >= scenarios.length) { showCBRNEAdvScenarioResults(); return; }
+    render(); return;
+  }
+
+  const step = steps[G.advScenStepIdx];
+
+  app.innerHTML = `
+    ${renderHUD('advScenTimer')}
+    <div class="screen quiz-game">
+      ${narrativePanel(`📍 <strong>${sc.title}</strong><br>단계 ${G.advScenStepIdx + 1}/${steps.length}`, { type: 'danger', tag: 'CBRNE 시나리오', tagClass: 'emergency', icon: '☣️' })}
+      <div class="quiz-q-card anim-in" style="margin-top:12px">
+        <div class="quiz-q-text" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px">${step.narrative || ''}</div>
+        <div class="quiz-q-text"><strong>${step.question || ''}</strong></div>
+        <div class="quiz-opts">
+          ${(step.options || []).map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            let cls = '';
+            if (G.advScenAnswered) {
+              if (opt.correct) cls = 'correct';
+              else if (i === G._advScenSelected && !opt.correct) cls = 'wrong';
+            }
+            return `<button class="q-opt ${cls}" onclick="answerCBRNEAdvScenario(${i})" ${G.advScenAnswered ? 'disabled' : ''}>
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${opt.text}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        ${G.advScenAnswered ? `
+          <div class="quiz-explanation">${(step.options[G._advScenSelected] || {}).feedback || ''}</div>
+          <button class="quiz-next-btn" onclick="nextCBRNEAdvScenario()">다음 단계 →</button>
+        ` : ''}
+      </div>
+    </div>`;
+
+  if (!G.advScenAnswered) {
+    startCountdown('advScenTimer', 30, updateTimerDisplay, () => {
+      G.advScenAnswered = true;
+      G._advScenSelected = -1;
+      updateStreak(false);
+      sfx('wrong');
+      render();
+    });
+  }
+}
+
+function answerCBRNEAdvScenario(idx) {
+  if (G.advScenAnswered) return;
+  G.advScenAnswered = true;
+  G._advScenSelected = idx;
+  stopTimer('advScenTimer');
+
+  const sc = window.CBRNE_CONTENT.scenarios[G.advScenIdx];
+  const step = sc.steps[G.advScenStepIdx];
+  const opt = step.options[idx];
+  const correct = opt && opt.correct;
+
+  Tracker.recordAnswer(`cbrneAdvScen_${G.advScenIdx}_${G.advScenStepIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    addScore(150);
+    addXP(step.xp || 40);
+    G.advScenScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    addScore(-20);
+    updateStreak(false);
+  }
+  checkAchievements();
+  render();
+}
+
+function nextCBRNEAdvScenario() {
+  G.advScenStepIdx++;
+  G.advScenAnswered = false;
+  G._advScenSelected = undefined;
+  Tracker.startQuestion();
+  render();
+}
+
+function showCBRNEAdvScenarioResults() {
+  stopTimer('advScenTimer');
+  G.modesCompleted.add('cbrneAdvScenario');
+  const scenarios = window.CBRNE_CONTENT.scenarios;
+  const totalSteps = scenarios.reduce((sum, sc) => sum + (sc.steps || []).length, 0);
+  const pct = Math.round(((G.advScenScore || 0) / Math.max(totalSteps, 1)) * 100);
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  Tracker.endMode(G.advScenScore || 0);
+  if (grade === 'S' || grade === 'A') confetti();
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      ${charBubble('mentor', grade === 'S' || grade === 'A' ? 'CBRNE 현장 대응을 완벽히 수행했다!' : '시나리오를 다시 통해 팀장을 벌쳐교!', { success: grade === 'S' || grade === 'A' })}
+      <div class="result-big anim-in">📖</div>
+      <div class="result-sub">CBRNE 시나리오 완료!</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.advScenScore || 0}/${totalSteps}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.score}</div><div class="lbl">총점</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="startCBRNEAdvScenario()">🔄 시나리오 재도전</button>
+        <button class="btn-outline" onclick="startCBRNEAdvBoss()">👹 보스전</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+
+// ============================================
+// CBRNE 심화 보스전
+// ============================================
+function renderCBRNEAdvBoss() {
+  const boss = G.advBoss;
+  if (!boss) { G.screen = 'cbrneAdv'; render(); return; }
+  const q = (G.advBossQ || [])[G.advBossIdx];
+  if (!q || G.advBossIdx >= (G.advBossQ || []).length) { showCBRNEAdvBossResults(); return; }
+
+  const hpPct = Math.round(((G.advBossHp || 0) / (boss.maxHp || 100)) * 100);
+  const playerHpPct = G.advBossPlayerHp || 0;
+
+  app.innerHTML = `
+    ${renderHUD('advBossTimer')}
+    <div class="screen quiz-game">
+      <div class="boss-banner heartbeat-effect" style="background:linear-gradient(135deg,#1a0a0a,#2d0a0a)">
+        <h2>${boss.emoji || '👹'} ${boss.name}</h2>
+        <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:8px">
+          <span style="font-size:0.8rem;color:var(--text-muted)">보스 HP</span>
+          <div style="flex:1;background:#333;border-radius:4px;height:10px;max-width:200px">
+            <div style="width:${hpPct}%;background:var(--red);height:10px;border-radius:4px;transition:width 0.3s"></div>
+          </div>
+          <span style="font-size:0.85rem;color:var(--red)">${G.advBossHp}/${boss.maxHp}</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:4px">
+          <span style="font-size:0.8rem;color:var(--text-muted)">내 HP</span>
+          <div style="flex:1;background:#333;border-radius:4px;height:8px;max-width:200px">
+            <div style="width:${playerHpPct}%;background:var(--green);height:8px;border-radius:4px;transition:width 0.3s"></div>
+          </div>
+          <span style="font-size:0.85rem;color:var(--green)">${playerHpPct}</span>
+        </div>
+        <p style="font-size:0.75rem;margin-top:4px">문제 ${G.advBossIdx + 1} / ${(G.advBossQ || []).length}</p>
+      </div>
+      ${charBubble('villain', rnd(CHARS.villain.taunts), { right: true, urgent: true, expression: '👿', delay: 0 })}
+      <div class="quiz-q-card anim-in">
+        <div class="quiz-q-text">${q.q}</div>
+        <div class="quiz-opts">
+          ${(q.o || []).map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return `<button class="q-opt" onclick="answerCBRNEAdvBoss(${i})">
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${opt}</span>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  showDangerPulse(true);
+  startCountdown('advBossTimer', 15, updateTimerDisplay, () => {
+    sfx('wrong');
+    shakeScreen();
+    updateStreak(false);
+    G.advBossPlayerHp = Math.max(0, (G.advBossPlayerHp || 100) - 20);
+    G.advBossIdx++;
+    if (G.advBossPlayerHp <= 0) { showCBRNEAdvBossResults(); return; }
+    render();
+  });
+}
+
+function answerCBRNEAdvBoss(idx) {
+  stopTimer('advBossTimer');
+  const q = G.advBossQ[G.advBossIdx];
+  const correct = idx === q.a;
+
+  Tracker.recordAnswer(`cbrneAdvBoss_${G.advBossIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    showImpact('green');
+    addScore(250);
+    addXP(60);
+    G.advBossScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+    const dmg = Math.floor((G.advBoss.maxHp || 100) / Math.max((G.advBossQ || []).length, 1));
+    G.advBossHp = Math.max(0, (G.advBossHp || 0) - dmg);
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    showImpact();
+    addScore(-50);
+    updateStreak(false);
+    G.advBossPlayerHp = Math.max(0, (G.advBossPlayerHp || 100) - 15);
+  }
+  checkAchievements();
+  showSpeedLines();
+
+  const fbLayer = document.createElement('div');
+  fbLayer.className = 'feedback-layer show';
+  fbLayer.innerHTML = `
+    <div class="fb-card">
+      <div class="fb-icon ${correct ? 'correct' : 'wrong'}">${correct ? '🏆' : '💀'}</div>
+      <h2>${correct ? '보스에 피해!' : '보스 반격!'}</h2>
+      <div class="fb-char-section">
+        <div class="fb-char-avatar">${correct ? CHARS.mentor.emoji : CHARS.villain.emoji}</div>
+        <div class="fb-char-dialogue">
+          <strong>${correct ? CHARS.mentor.name : CHARS.villain.name}:</strong>
+          ${correct ? rnd(CHARS.mentor.correct) : '이력으로는 부족하다...'}
+          ${q.exp ? `<br><br>${q.exp}` : ''}
+        </div>
+      </div>
+      <div class="fb-points ${correct ? 'plus' : 'minus'}">${correct ? '+250' : '-50'}</div>
+      <button class="fb-next" onclick="nextCBRNEAdvBoss()">다음 →</button>
+    </div>`;
+  document.body.appendChild(fbLayer);
+}
+
+function nextCBRNEAdvBoss() {
+  document.querySelector('.feedback-layer')?.remove();
+  G.advBossIdx++;
+  if (G.advBossPlayerHp <= 0 || G.advBossHp <= 0) { showCBRNEAdvBossResults(); return; }
+  Tracker.startQuestion();
+  render();
+}
+
+function showCBRNEAdvBossResults() {
+  showDangerPulse(false);
+  stopTimer('advBossTimer');
+  const total = (G.advBossQ || []).length;
+  const pct = Math.round(((G.advBossScore || 0) / Math.max(total, 1)) * 100);
+  const win = (G.advBossHp || 0) <= 0 || pct >= 70;
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  G.bossGrade = grade;
+  Tracker.endMode(G.advBossScore || 0);
+  checkAchievements();
+  if (win) { confetti(); addXP(300); addScore(500); }
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      <div class="result-big anim-in">${win ? '🏆' : '💀'}</div>
+      <div class="result-sub">${win ? G.advBoss.name + ' 토볌!' : '보스에게 패배...'}</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      ${win && G.advBoss.reward ? `<div class="quiz-explanation" style="margin:12px 0">🏅 보상: ${G.advBoss.reward.title || ''} +${G.advBoss.reward.xp || 0} XP</div>` : ''}
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.advBossScore || 0}/${total}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.advBossHp}</div><div class="lbl">보스 남은 HP</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="startCBRNEAdvBoss()">🔄 보스 재도전</button>
+        <button class="btn-outline" onclick="enterMode('cbrneAdv')">☣️ CBRNE 퀴즈</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+
+// ============================================
+// 전술의학 QUIZ
+// ============================================
+function renderTactical() {
+  const total = (G.tacQ || []).length;
+  const q = (G.tacQ || [])[G.tacIdx];
+  if (!q || G.tacIdx >= total) { showTacticalHub(); return; }
+
+  const mentorLine = G.tacIdx === 0
+    ? 'TCCC/TECC 전술 현장 응급의료 실력을 테스트한다! MARCH 프로토콜과 전술 대응을 직접 적용하라!'
+    : G.tacAnswered ? '' : rnd(CHARS.mentor.hints);
+
+  app.innerHTML = `
+    ${renderHUD('tacTimer')}
+    <div class="screen quiz-game">
+      ${G.tacIdx === 0 ? charBubble('mentor', mentorLine) : ''}
+      <div class="quiz-progress-bar">
+        <span class="quiz-pbar-num">${G.tacIdx + 1}/${total}</span>
+        <div class="pbar-track"><div class="pbar-fill" style="width:${(G.tacIdx / total) * 100}%"></div></div>
+      </div>
+      <div class="quiz-q-card anim-in">
+        ${q.category ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px">🎯 ${q.category.toUpperCase()}</div>` : ''}
+        <div class="quiz-q-text">${q.q}</div>
+        <div class="quiz-opts">
+          ${(q.o || []).map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            let cls = '';
+            if (G.tacAnswered) {
+              if (i === q.a) cls = 'correct';
+              else if (i === G._tacSelected && i !== q.a) cls = 'wrong';
+            }
+            return `<button class="q-opt ${cls}" onclick="answerTactical(${i})" ${G.tacAnswered ? 'disabled' : ''}>
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${opt}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        ${G.tacAnswered ? `
+          <div class="quiz-explanation">${q.exp || ''}</div>
+          <button class="quiz-next-btn" onclick="nextTactical()">다음 문제 →</button>
+        ` : ''}
+      </div>
+    </div>`;
+
+  if (!G.tacAnswered) {
+    startCountdown('tacTimer', 20 + getTimerBonus('tactical'), updateTimerDisplay, () => {
+      G.tacAnswered = true;
+      G._tacSelected = -1;
+      updateStreak(false);
+      sfx('wrong');
+      shakeScreen();
+      render();
+    });
+  }
+}
+
+function answerTactical(idx) {
+  if (G.tacAnswered) return;
+  G.tacAnswered = true;
+  G._tacSelected = idx;
+  stopTimer('tacTimer');
+
+  const q = G.tacQ[G.tacIdx];
+  const correct = idx === q.a;
+
+  Tracker.recordAnswer(`tactical_q_${G.tacIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    const timeBonus = Math.max(0, G.tacTimer * 5);
+    addScore(100 + timeBonus);
+    addXP(25);
+    G.tacScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    addScore(-10);
+    updateStreak(false);
+  }
+  checkAchievements();
+  render();
+}
+
+function nextTactical() {
+  G.tacIdx++;
+  G.tacAnswered = false;
+  G._tacSelected = undefined;
+  Tracker.startQuestion();
+  render();
+}
+
+function showTacticalHub() {
+  stopTimer('tacTimer');
+  G.modesCompleted.add('tactical');
+  const total = (G.tacQ || []).length;
+  const pct = Math.round(((G.tacScore || 0) / Math.max(total, 1)) * 100);
+  if (pct === 100 && total > 0) G.perfectModes++;
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  Tracker.endMode(G.tacScore || 0);
+  checkAchievements();
+  advanceStoryAct();
+  if (grade === 'S' || grade === 'A') confetti();
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      ${charBubble('mentor', grade === 'S' || grade === 'A' ? '전술 현장의 에이스! TCCC 마스터!' : '기초를 다지고 다시 도전해바!', { success: grade === 'S' || grade === 'A' })}
+      <div class="result-big anim-in">🎯</div>
+      <div class="result-sub">전술의학 퀴즈 완료!</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.tacScore || 0}/${total}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.maxStreak}</div><div class="lbl">최대 연속</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="enterMode('tactical')">🔄 퀴즈 재도전</button>
+        <button class="btn-outline" onclick="startTacticalScenario()">📖 시나리오 모드</button>
+        <button class="btn-outline" onclick="startTacticalBoss()">👹 보스전</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+
+function startTacticalScenario() {
+  const content = window.TACTICAL_CTM_CONTENT;
+  if (!content || !content.tacticalScenarios || content.tacticalScenarios.length === 0) {
+    alert('전술의학 시나리오를 로드할 수 없습니다.'); return;
+  }
+  G.tacScenIdx = 0;
+  G.tacScenStepIdx = 0;
+  G.tacScenScore = 0;
+  G.tacScenAnswered = false;
+  G.screen = 'tacticalScenario';
+  Tracker.startMode('tacticalScenario');
+  render();
+}
+
+function startTacticalBoss() {
+  const content = window.TACTICAL_CTM_CONTENT;
+  if (!content || !content.bossBattles || content.bossBattles.length === 0) {
+    alert('전술 보스를 로드할 수 없습니다.'); return;
+  }
+  const tacticalBosses = content.bossBattles.filter(b => b.category === 'tactical');
+  const bossPool = tacticalBosses.length > 0 ? tacticalBosses : content.bossBattles;
+  const boss = bossPool[Math.floor(Math.random() * bossPool.length)];
+  const phaseQs = boss.phases.flatMap(ph => ph.questions || []);
+  G.tacBoss = boss;
+  G.tacBossQ = phaseQs.slice(0, 10);
+  G.tacBossIdx = 0;
+  G.tacBossHp = boss.maxHp;
+  G.tacBossPlayerHp = 100;
+  G.tacBossScore = 0;
+  G.screen = 'tacticalBoss';
+  Tracker.startMode('tacticalBoss');
+  render();
+}
+
+// ============================================
+// 전술의학 시나리오
+// ============================================
+function renderTacticalScenario() {
+  const content = window.TACTICAL_CTM_CONTENT;
+  if (!content) { G.screen = 'modes'; render(); return; }
+  const scenarios = content.tacticalScenarios;
+  if (!scenarios || scenarios.length === 0) { G.screen = 'modes'; render(); return; }
+  if (G.tacScenIdx >= scenarios.length) { showTacticalScenarioResults(); return; }
+
+  const sc = scenarios[G.tacScenIdx];
+  const steps = sc.steps || [];
+  if (G.tacScenStepIdx >= steps.length) {
+    G.tacScenIdx++;
+    G.tacScenStepIdx = 0;
+    G.tacScenAnswered = false;
+    if (G.tacScenIdx >= scenarios.length) { showTacticalScenarioResults(); return; }
+    render(); return;
+  }
+
+  const step = steps[G.tacScenStepIdx];
+  const choices = step.choices || step.options || [];
+
+  app.innerHTML = `
+    ${renderHUD('tacScenTimer')}
+    <div class="screen quiz-game">
+      ${narrativePanel(`🎯 <strong>${sc.title}</strong><br>단계 ${G.tacScenStepIdx + 1}/${steps.length}`, { type: 'danger', tag: '전술의학 시나리오', tagClass: 'emergency', icon: '🎯' })}
+      <div class="quiz-q-card anim-in" style="margin-top:12px">
+        <div class="quiz-q-text" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px">${step.situation || step.narrative || ''}</div>
+        <div class="quiz-q-text"><strong>${step.question || ''}</strong></div>
+        <div class="quiz-opts">
+          ${choices.map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            const optText = opt.text || '';
+            const isCorrect = (opt.correct === true) || (typeof step.correctChoice !== 'undefined' && i === step.correctChoice) || (opt.outcome === 'good');
+            let cls = '';
+            if (G.tacScenAnswered) {
+              if (isCorrect) cls = 'correct';
+              else if (i === G._tacScenSelected && !isCorrect) cls = 'wrong';
+            }
+            return `<button class="q-opt ${cls}" onclick="answerTacticalScenario(${i})" ${G.tacScenAnswered ? 'disabled' : ''}>
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${optText}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        ${G.tacScenAnswered ? `
+          <div class="quiz-explanation">${(choices[G._tacScenSelected] || {}).feedback || ''}</div>
+          ${step.medicalInfo ? `<div class="quiz-explanation" style="border-left-color:var(--blue)">💡 ${step.medicalInfo}</div>` : ''}
+          <button class="quiz-next-btn" onclick="nextTacticalScenario()">다음 단계 →</button>
+        ` : ''}
+      </div>
+    </div>`;
+
+  if (!G.tacScenAnswered) {
+    startCountdown('tacScenTimer', 30, updateTimerDisplay, () => {
+      G.tacScenAnswered = true;
+      G._tacScenSelected = -1;
+      updateStreak(false);
+      sfx('wrong');
+      render();
+    });
+  }
+}
+
+function answerTacticalScenario(idx) {
+  if (G.tacScenAnswered) return;
+  G.tacScenAnswered = true;
+  G._tacScenSelected = idx;
+  stopTimer('tacScenTimer');
+
+  const sc = window.TACTICAL_CTM_CONTENT.tacticalScenarios[G.tacScenIdx];
+  const step = sc.steps[G.tacScenStepIdx];
+  const choices = step.choices || step.options || [];
+  const opt = choices[idx];
+  const correct = opt && (opt.correct === true || (typeof step.correctChoice !== 'undefined' && idx === step.correctChoice) || opt.outcome === 'good');
+
+  Tracker.recordAnswer(`tacScen_${G.tacScenIdx}_${G.tacScenStepIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    addScore(150);
+    addXP(40);
+    G.tacScenScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    addScore(-20);
+    updateStreak(false);
+  }
+  checkAchievements();
+  render();
+}
+
+function nextTacticalScenario() {
+  G.tacScenStepIdx++;
+  G.tacScenAnswered = false;
+  G._tacScenSelected = undefined;
+  Tracker.startQuestion();
+  render();
+}
+
+function showTacticalScenarioResults() {
+  stopTimer('tacScenTimer');
+  G.modesCompleted.add('tacticalScenario');
+  const scenarios = window.TACTICAL_CTM_CONTENT.tacticalScenarios;
+  const totalSteps = scenarios.reduce((sum, sc) => sum + (sc.steps || []).length, 0);
+  const pct = Math.round(((G.tacScenScore || 0) / Math.max(totalSteps, 1)) * 100);
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  Tracker.endMode(G.tacScenScore || 0);
+  if (grade === 'S' || grade === 'A') confetti();
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      ${charBubble('mentor', grade === 'S' || grade === 'A' ? '전술 현장을 완밤하게 장악했다!' : '마음을 다지고 다시 도전해바!', { success: grade === 'S' || grade === 'A' })}
+      <div class="result-big anim-in">📖</div>
+      <div class="result-sub">전술의학 시나리오 완료!</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.tacScenScore || 0}/${totalSteps}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.score}</div><div class="lbl">총점</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="startTacticalScenario()">🔄 시나리오 재도전</button>
+        <button class="btn-outline" onclick="startTacticalBoss()">👹 보스전</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+
+// ============================================
+// 전술의학 보스전
+// ============================================
+function renderTacticalBoss() {
+  const boss = G.tacBoss;
+  if (!boss) { G.screen = 'tactical'; render(); return; }
+  const q = (G.tacBossQ || [])[G.tacBossIdx];
+  if (!q || G.tacBossIdx >= (G.tacBossQ || []).length) { showTacticalBossResults(); return; }
+
+  const hpPct = Math.round(((G.tacBossHp || 0) / (boss.maxHp || 100)) * 100);
+  const playerHpPct = G.tacBossPlayerHp || 0;
+
+  app.innerHTML = `
+    ${renderHUD('tacBossTimer')}
+    <div class="screen quiz-game">
+      <div class="boss-banner heartbeat-effect" style="background:linear-gradient(135deg,#0a1a0a,#0a2d0a)">
+        <h2>${boss.emoji || '🎯'} ${boss.name}</h2>
+        <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:8px">
+          <span style="font-size:0.8rem;color:var(--text-muted)">보스 HP</span>
+          <div style="flex:1;background:#333;border-radius:4px;height:10px;max-width:200px">
+            <div style="width:${hpPct}%;background:var(--red);height:10px;border-radius:4px;transition:width 0.3s"></div>
+          </div>
+          <span style="font-size:0.85rem;color:var(--red)">${G.tacBossHp}/${boss.maxHp}</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:4px">
+          <span style="font-size:0.8rem;color:var(--text-muted)">내 HP</span>
+          <div style="flex:1;background:#333;border-radius:4px;height:8px;max-width:200px">
+            <div style="width:${playerHpPct}%;background:var(--green);height:8px;border-radius:4px;transition:width 0.3s"></div>
+          </div>
+          <span style="font-size:0.85rem;color:var(--green)">${playerHpPct}</span>
+        </div>
+        <p style="font-size:0.75rem;margin-top:4px">문제 ${G.tacBossIdx + 1} / ${(G.tacBossQ || []).length}</p>
+      </div>
+      ${charBubble('villain', rnd(CHARS.villain.taunts), { right: true, urgent: true, expression: '👿', delay: 0 })}
+      <div class="quiz-q-card anim-in">
+        <div class="quiz-q-text">${q.q}</div>
+        <div class="quiz-opts">
+          ${(q.o || []).map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return `<button class="q-opt" onclick="answerTacticalBoss(${i})">
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${opt}</span>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  showDangerPulse(true);
+  startCountdown('tacBossTimer', 15, updateTimerDisplay, () => {
+    sfx('wrong');
+    shakeScreen();
+    updateStreak(false);
+    G.tacBossPlayerHp = Math.max(0, (G.tacBossPlayerHp || 100) - 20);
+    G.tacBossIdx++;
+    if (G.tacBossPlayerHp <= 0) { showTacticalBossResults(); return; }
+    render();
+  });
+}
+
+function answerTacticalBoss(idx) {
+  stopTimer('tacBossTimer');
+  const q = G.tacBossQ[G.tacBossIdx];
+  const correct = idx === q.a;
+
+  Tracker.recordAnswer(`tacBoss_${G.tacBossIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    showImpact('green');
+    addScore(250);
+    addXP(60);
+    G.tacBossScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+    const dmg = Math.floor((G.tacBoss.maxHp || 100) / Math.max((G.tacBossQ || []).length, 1));
+    G.tacBossHp = Math.max(0, (G.tacBossHp || 0) - dmg);
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    showImpact();
+    addScore(-50);
+    updateStreak(false);
+    G.tacBossPlayerHp = Math.max(0, (G.tacBossPlayerHp || 100) - 15);
+  }
+  checkAchievements();
+  showSpeedLines();
+
+  const fbLayer = document.createElement('div');
+  fbLayer.className = 'feedback-layer show';
+  fbLayer.innerHTML = `
+    <div class="fb-card">
+      <div class="fb-icon ${correct ? 'correct' : 'wrong'}">${correct ? '🏆' : '💀'}</div>
+      <h2>${correct ? '보스에 피해!' : '보스 반격!'}</h2>
+      <div class="fb-char-section">
+        <div class="fb-char-avatar">${correct ? CHARS.mentor.emoji : CHARS.villain.emoji}</div>
+        <div class="fb-char-dialogue">
+          <strong>${correct ? CHARS.mentor.name : CHARS.villain.name}:</strong>
+          ${correct ? rnd(CHARS.mentor.correct) : '이력으로는 부족하다...'}
+          ${q.exp ? `<br><br>${q.exp}` : ''}
+        </div>
+      </div>
+      <div class="fb-points ${correct ? 'plus' : 'minus'}">${correct ? '+250' : '-50'}</div>
+      <button class="fb-next" onclick="nextTacticalBoss()">다음 →</button>
+    </div>`;
+  document.body.appendChild(fbLayer);
+}
+
+function nextTacticalBoss() {
+  document.querySelector('.feedback-layer')?.remove();
+  G.tacBossIdx++;
+  if (G.tacBossPlayerHp <= 0 || G.tacBossHp <= 0) { showTacticalBossResults(); return; }
+  Tracker.startQuestion();
+  render();
+}
+
+function showTacticalBossResults() {
+  showDangerPulse(false);
+  stopTimer('tacBossTimer');
+  const total = (G.tacBossQ || []).length;
+  const pct = Math.round(((G.tacBossScore || 0) / Math.max(total, 1)) * 100);
+  const win = (G.tacBossHp || 0) <= 0 || pct >= 70;
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  G.bossGrade = grade;
+  Tracker.endMode(G.tacBossScore || 0);
+  checkAchievements();
+  if (win) { confetti(); addXP(300); addScore(500); }
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      <div class="result-big anim-in">${win ? '🏆' : '💀'}</div>
+      <div class="result-sub">${win ? G.tacBoss.name + ' 토볌!' : '보스에게 패배...'}</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      ${win && G.tacBoss.reward ? `<div class="quiz-explanation" style="margin:12px 0">🏅 보상: ${G.tacBoss.reward.badge || ''}</div>` : ''}
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.tacBossScore || 0}/${total}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.tacBossHp}</div><div class="lbl">보스 남은 HP</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="startTacticalBoss()">🔄 보스 재도전</button>
+        <button class="btn-outline" onclick="enterMode('tactical')">🎯 전술의학 퀴즈</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+
+// ============================================
+// 대테러의학 QUIZ
+// ============================================
+function renderCTM() {
+  const total = (G.ctmQ || []).length;
+  const q = (G.ctmQ || [])[G.ctmIdx];
+  if (!q || G.ctmIdx >= total) { showCTMHub(); return; }
+
+  const mentorLine = G.ctmIdx === 0
+    ? '대테러 의학(CTM) 전문 퀴즈다! 테러 위협 식별, CBRN 대응, 호스피털 보호까지 전부 적용하라!'
+    : G.ctmAnswered ? '' : rnd(CHARS.mentor.hints);
+
+  app.innerHTML = `
+    ${renderHUD('ctmTimer')}
+    <div class="screen quiz-game">
+      ${G.ctmIdx === 0 ? charBubble('mentor', mentorLine) : ''}
+      <div class="quiz-progress-bar">
+        <span class="quiz-pbar-num">${G.ctmIdx + 1}/${total}</span>
+        <div class="pbar-track"><div class="pbar-fill" style="width:${(G.ctmIdx / total) * 100}%"></div></div>
+      </div>
+      <div class="quiz-q-card anim-in">
+        ${q.category ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px">🛡️ ${q.category.toUpperCase()}</div>` : ''}
+        <div class="quiz-q-text">${q.q}</div>
+        <div class="quiz-opts">
+          ${(q.o || []).map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            let cls = '';
+            if (G.ctmAnswered) {
+              if (i === q.a) cls = 'correct';
+              else if (i === G._ctmSelected && i !== q.a) cls = 'wrong';
+            }
+            return `<button class="q-opt ${cls}" onclick="answerCTM(${i})" ${G.ctmAnswered ? 'disabled' : ''}>
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${opt}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        ${G.ctmAnswered ? `
+          <div class="quiz-explanation">${q.exp || ''}</div>
+          <button class="quiz-next-btn" onclick="nextCTM()">다음 문제 →</button>
+        ` : ''}
+      </div>
+    </div>`;
+
+  if (!G.ctmAnswered) {
+    startCountdown('ctmTimer', 20 + getTimerBonus('ctm'), updateTimerDisplay, () => {
+      G.ctmAnswered = true;
+      G._ctmSelected = -1;
+      updateStreak(false);
+      sfx('wrong');
+      shakeScreen();
+      render();
+    });
+  }
+}
+
+function answerCTM(idx) {
+  if (G.ctmAnswered) return;
+  G.ctmAnswered = true;
+  G._ctmSelected = idx;
+  stopTimer('ctmTimer');
+
+  const q = G.ctmQ[G.ctmIdx];
+  const correct = idx === q.a;
+
+  Tracker.recordAnswer(`ctm_q_${G.ctmIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    const timeBonus = Math.max(0, G.ctmTimer * 5);
+    addScore(100 + timeBonus);
+    addXP(25);
+    G.ctmScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    addScore(-10);
+    updateStreak(false);
+  }
+  checkAchievements();
+  render();
+}
+
+function nextCTM() {
+  G.ctmIdx++;
+  G.ctmAnswered = false;
+  G._ctmSelected = undefined;
+  Tracker.startQuestion();
+  render();
+}
+
+function showCTMHub() {
+  stopTimer('ctmTimer');
+  G.modesCompleted.add('ctm');
+  const total = (G.ctmQ || []).length;
+  const pct = Math.round(((G.ctmScore || 0) / Math.max(total, 1)) * 100);
+  if (pct === 100 && total > 0) G.perfectModes++;
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  Tracker.endMode(G.ctmScore || 0);
+  checkAchievements();
+  advanceStoryAct();
+  if (grade === 'S' || grade === 'A') confetti();
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      ${charBubble('mentor', grade === 'S' || grade === 'A' ? '대테러의학 전문가다! 탁월하다!' : '기초를 다지고 다시 도전해바!', { success: grade === 'S' || grade === 'A' })}
+      <div class="result-big anim-in">🛡️</div>
+      <div class="result-sub">대테러의학 퀴즈 완료!</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.ctmScore || 0}/${total}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.maxStreak}</div><div class="lbl">최대 연속</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="enterMode('ctm')">🔄 퀴즈 재도전</button>
+        <button class="btn-outline" onclick="startCTMScenario()">📖 시나리오 모드</button>
+        <button class="btn-outline" onclick="startCTMBoss()">👹 보스전</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+
+function startCTMScenario() {
+  const content = window.TACTICAL_CTM_CONTENT;
+  if (!content || !content.ctmScenarios || content.ctmScenarios.length === 0) {
+    alert('대테러의학 시나리오를 로드할 수 없습니다.'); return;
+  }
+  G.ctmScenIdx = 0;
+  G.ctmScenStepIdx = 0;
+  G.ctmScenScore = 0;
+  G.ctmScenAnswered = false;
+  G.screen = 'ctmScenario';
+  Tracker.startMode('ctmScenario');
+  render();
+}
+
+function startCTMBoss() {
+  const content = window.TACTICAL_CTM_CONTENT;
+  if (!content || !content.bossBattles || content.bossBattles.length === 0) {
+    alert('CTM 보스를 로드할 수 없습니다.'); return;
+  }
+  const ctmBosses = content.bossBattles.filter(b => b.category === 'ctm' || b.category === 'counter_terrorism');
+  const bossPool = ctmBosses.length > 0 ? ctmBosses : content.bossBattles;
+  const boss = bossPool[Math.floor(Math.random() * bossPool.length)];
+  const phaseQs = boss.phases.flatMap(ph => ph.questions || []);
+  G.ctmBoss = boss;
+  G.ctmBossQ = phaseQs.slice(0, 10);
+  G.ctmBossIdx = 0;
+  G.ctmBossHp = boss.maxHp;
+  G.ctmBossPlayerHp = 100;
+  G.ctmBossScore = 0;
+  G.screen = 'ctmBoss';
+  Tracker.startMode('ctmBoss');
+  render();
+}
+
+// ============================================
+// 대테러의학 시나리오
+// ============================================
+function renderCTMScenario() {
+  const content = window.TACTICAL_CTM_CONTENT;
+  if (!content) { G.screen = 'modes'; render(); return; }
+  const scenarios = content.ctmScenarios;
+  if (!scenarios || scenarios.length === 0) { G.screen = 'modes'; render(); return; }
+  if (G.ctmScenIdx >= scenarios.length) { showCTMScenarioResults(); return; }
+
+  const sc = scenarios[G.ctmScenIdx];
+  const steps = sc.steps || [];
+  if (G.ctmScenStepIdx >= steps.length) {
+    G.ctmScenIdx++;
+    G.ctmScenStepIdx = 0;
+    G.ctmScenAnswered = false;
+    if (G.ctmScenIdx >= scenarios.length) { showCTMScenarioResults(); return; }
+    render(); return;
+  }
+
+  const step = steps[G.ctmScenStepIdx];
+  const choices = step.choices || step.options || [];
+
+  app.innerHTML = `
+    ${renderHUD('ctmScenTimer')}
+    <div class="screen quiz-game">
+      ${narrativePanel(`🛡️ <strong>${sc.title}</strong><br>단계 ${G.ctmScenStepIdx + 1}/${steps.length}`, { type: 'danger', tag: '대테러의학 시나리오', tagClass: 'emergency', icon: '🛡️' })}
+      <div class="quiz-q-card anim-in" style="margin-top:12px">
+        <div class="quiz-q-text" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px">${step.situation || step.narrative || ''}</div>
+        <div class="quiz-q-text"><strong>${step.question || ''}</strong></div>
+        <div class="quiz-opts">
+          ${choices.map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            const optText = opt.text || '';
+            const isCorrect = (opt.correct === true) || (typeof step.correctChoice !== 'undefined' && i === step.correctChoice) || (opt.outcome === 'good');
+            let cls = '';
+            if (G.ctmScenAnswered) {
+              if (isCorrect) cls = 'correct';
+              else if (i === G._ctmScenSelected && !isCorrect) cls = 'wrong';
+            }
+            return `<button class="q-opt ${cls}" onclick="answerCTMScenario(${i})" ${G.ctmScenAnswered ? 'disabled' : ''}>
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${optText}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        ${G.ctmScenAnswered ? `
+          <div class="quiz-explanation">${(choices[G._ctmScenSelected] || {}).feedback || ''}</div>
+          ${step.medicalInfo ? `<div class="quiz-explanation" style="border-left-color:var(--blue)">💡 ${step.medicalInfo}</div>` : ''}
+          <button class="quiz-next-btn" onclick="nextCTMScenario()">다음 단계 →</button>
+        ` : ''}
+      </div>
+    </div>`;
+
+  if (!G.ctmScenAnswered) {
+    startCountdown('ctmScenTimer', 30, updateTimerDisplay, () => {
+      G.ctmScenAnswered = true;
+      G._ctmScenSelected = -1;
+      updateStreak(false);
+      sfx('wrong');
+      render();
+    });
+  }
+}
+
+function answerCTMScenario(idx) {
+  if (G.ctmScenAnswered) return;
+  G.ctmScenAnswered = true;
+  G._ctmScenSelected = idx;
+  stopTimer('ctmScenTimer');
+
+  const sc = window.TACTICAL_CTM_CONTENT.ctmScenarios[G.ctmScenIdx];
+  const step = sc.steps[G.ctmScenStepIdx];
+  const choices = step.choices || step.options || [];
+  const opt = choices[idx];
+  const correct = opt && (opt.correct === true || (typeof step.correctChoice !== 'undefined' && idx === step.correctChoice) || opt.outcome === 'good');
+
+  Tracker.recordAnswer(`ctmScen_${G.ctmScenIdx}_${G.ctmScenStepIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    addScore(150);
+    addXP(40);
+    G.ctmScenScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    addScore(-20);
+    updateStreak(false);
+  }
+  checkAchievements();
+  render();
+}
+
+function nextCTMScenario() {
+  G.ctmScenStepIdx++;
+  G.ctmScenAnswered = false;
+  G._ctmScenSelected = undefined;
+  Tracker.startQuestion();
+  render();
+}
+
+function showCTMScenarioResults() {
+  stopTimer('ctmScenTimer');
+  G.modesCompleted.add('ctmScenario');
+  const scenarios = window.TACTICAL_CTM_CONTENT.ctmScenarios;
+  const totalSteps = scenarios.reduce((sum, sc) => sum + (sc.steps || []).length, 0);
+  const pct = Math.round(((G.ctmScenScore || 0) / Math.max(totalSteps, 1)) * 100);
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  Tracker.endMode(G.ctmScenScore || 0);
+  if (grade === 'S' || grade === 'A') confetti();
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      ${charBubble('mentor', grade === 'S' || grade === 'A' ? '대테러 위기를 완뱲하게 것내다!' : '마음을 다지고 다시 도전해바!', { success: grade === 'S' || grade === 'A' })}
+      <div class="result-big anim-in">📖</div>
+      <div class="result-sub">대테러의학 시나리오 완료!</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.ctmScenScore || 0}/${totalSteps}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.score}</div><div class="lbl">총점</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="startCTMScenario()">🔄 시나리오 재도전</button>
+        <button class="btn-outline" onclick="startCTMBoss()">👹 보스전</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+
+// ============================================
+// 대테러의학 보스전
+// ============================================
+function renderCTMBoss() {
+  const boss = G.ctmBoss;
+  if (!boss) { G.screen = 'ctm'; render(); return; }
+  const q = (G.ctmBossQ || [])[G.ctmBossIdx];
+  if (!q || G.ctmBossIdx >= (G.ctmBossQ || []).length) { showCTMBossResults(); return; }
+
+  const hpPct = Math.round(((G.ctmBossHp || 0) / (boss.maxHp || 100)) * 100);
+  const playerHpPct = G.ctmBossPlayerHp || 0;
+
+  app.innerHTML = `
+    ${renderHUD('ctmBossTimer')}
+    <div class="screen quiz-game">
+      <div class="boss-banner heartbeat-effect" style="background:linear-gradient(135deg,#1a0a0a,#0a0a1a)">
+        <h2>${boss.emoji || '🛡️'} ${boss.name}</h2>
+        <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:8px">
+          <span style="font-size:0.8rem;color:var(--text-muted)">보스 HP</span>
+          <div style="flex:1;background:#333;border-radius:4px;height:10px;max-width:200px">
+            <div style="width:${hpPct}%;background:var(--red);height:10px;border-radius:4px;transition:width 0.3s"></div>
+          </div>
+          <span style="font-size:0.85rem;color:var(--red)">${G.ctmBossHp}/${boss.maxHp}</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:4px">
+          <span style="font-size:0.8rem;color:var(--text-muted)">내 HP</span>
+          <div style="flex:1;background:#333;border-radius:4px;height:8px;max-width:200px">
+            <div style="width:${playerHpPct}%;background:var(--green);height:8px;border-radius:4px;transition:width 0.3s"></div>
+          </div>
+          <span style="font-size:0.85rem;color:var(--green)">${playerHpPct}</span>
+        </div>
+        <p style="font-size:0.75rem;margin-top:4px">문제 ${G.ctmBossIdx + 1} / ${(G.ctmBossQ || []).length}</p>
+      </div>
+      ${charBubble('villain', rnd(CHARS.villain.taunts), { right: true, urgent: true, expression: '👿', delay: 0 })}
+      <div class="quiz-q-card anim-in">
+        <div class="quiz-q-text">${q.q}</div>
+        <div class="quiz-opts">
+          ${(q.o || []).map((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            return `<button class="q-opt" onclick="answerCTMBoss(${i})">
+              <span class="q-letter">${letter}</span>
+              <span class="q-opt-text">${opt}</span>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  showDangerPulse(true);
+  startCountdown('ctmBossTimer', 15, updateTimerDisplay, () => {
+    sfx('wrong');
+    shakeScreen();
+    updateStreak(false);
+    G.ctmBossPlayerHp = Math.max(0, (G.ctmBossPlayerHp || 100) - 20);
+    G.ctmBossIdx++;
+    if (G.ctmBossPlayerHp <= 0) { showCTMBossResults(); return; }
+    render();
+  });
+}
+
+function answerCTMBoss(idx) {
+  stopTimer('ctmBossTimer');
+  const q = G.ctmBossQ[G.ctmBossIdx];
+  const correct = idx === q.a;
+
+  Tracker.recordAnswer(`ctmBoss_${G.ctmBossIdx}`, String(idx), correct);
+
+  if (correct) {
+    sfx('correct');
+    flashScreen('green');
+    showImpact('green');
+    addScore(250);
+    addXP(60);
+    G.ctmBossScore++;
+    updateStreak(true);
+    G.totalCorrect++;
+    const dmg = Math.floor((G.ctmBoss.maxHp || 100) / Math.max((G.ctmBossQ || []).length, 1));
+    G.ctmBossHp = Math.max(0, (G.ctmBossHp || 0) - dmg);
+  } else {
+    sfx('wrong');
+    shakeScreen();
+    showImpact();
+    addScore(-50);
+    updateStreak(false);
+    G.ctmBossPlayerHp = Math.max(0, (G.ctmBossPlayerHp || 100) - 15);
+  }
+  checkAchievements();
+  showSpeedLines();
+
+  const fbLayer = document.createElement('div');
+  fbLayer.className = 'feedback-layer show';
+  fbLayer.innerHTML = `
+    <div class="fb-card">
+      <div class="fb-icon ${correct ? 'correct' : 'wrong'}">${correct ? '🏆' : '💀'}</div>
+      <h2>${correct ? '보스에 피해!' : '보스 반격!'}</h2>
+      <div class="fb-char-section">
+        <div class="fb-char-avatar">${correct ? CHARS.mentor.emoji : CHARS.villain.emoji}</div>
+        <div class="fb-char-dialogue">
+          <strong>${correct ? CHARS.mentor.name : CHARS.villain.name}:</strong>
+          ${correct ? rnd(CHARS.mentor.correct) : '이력으로는 부족하다...'}
+          ${q.exp ? `<br><br>${q.exp}` : ''}
+        </div>
+      </div>
+      <div class="fb-points ${correct ? 'plus' : 'minus'}">${correct ? '+250' : '-50'}</div>
+      <button class="fb-next" onclick="nextCTMBoss()">다음 →</button>
+    </div>`;
+  document.body.appendChild(fbLayer);
+}
+
+function nextCTMBoss() {
+  document.querySelector('.feedback-layer')?.remove();
+  G.ctmBossIdx++;
+  if (G.ctmBossPlayerHp <= 0 || G.ctmBossHp <= 0) { showCTMBossResults(); return; }
+  Tracker.startQuestion();
+  render();
+}
+
+function showCTMBossResults() {
+  showDangerPulse(false);
+  stopTimer('ctmBossTimer');
+  const total = (G.ctmBossQ || []).length;
+  const pct = Math.round(((G.ctmBossScore || 0) / Math.max(total, 1)) * 100);
+  const win = (G.ctmBossHp || 0) <= 0 || pct >= 70;
+  const grade = getGrade(pct);
+  const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
+  G.bossGrade = grade;
+  Tracker.endMode(G.ctmBossScore || 0);
+  checkAchievements();
+  if (win) { confetti(); addXP(300); addScore(500); }
+
+  app.innerHTML = `
+    <div class="screen results-screen">
+      <div class="result-big anim-in">${win ? '🏆' : '💀'}</div>
+      <div class="result-sub">${win ? G.ctmBoss.name + ' 토볌!' : '보스에게 패배...'}</div>
+      <div class="result-grade ${gradeClass} anim-in">등급: ${grade}</div>
+      ${win && G.ctmBoss.reward ? `<div class="quiz-explanation" style="margin:12px 0">🏅 보상: ${G.ctmBoss.reward.badge || ''}</div>` : ''}
+      <div class="result-stats anim-in">
+        <div class="r-stat"><div class="val">${G.ctmBossScore || 0}/${total}</div><div class="lbl">정답</div></div>
+        <div class="r-stat"><div class="val">${pct}%</div><div class="lbl">정확도</div></div>
+        <div class="r-stat"><div class="val">${G.ctmBossHp}</div><div class="lbl">보스 남은 HP</div></div>
+      </div>
+      <div class="result-actions anim-in">
+        <button class="btn-primary" onclick="startCTMBoss()">🔄 보스 재도전</button>
+        <button class="btn-outline" onclick="enterMode('ctm')">🛡️ 대테러의학 퀴즈</button>
+        <button class="btn-outline" onclick="G.screen='modes';render();">🏠 미션 선택</button>
+      </div>
+    </div>`;
+  G.screen = 'results';
+}
+// ============================================
+// END OF NEW GAME MODES
+// ============================================
