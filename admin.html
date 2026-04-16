@@ -228,6 +228,7 @@ tr:hover td{background:rgba(68,138,255,0.05)}
         <div class="tab" onclick="filterQuestions('cbrneAdv')">☣️ CBRNE 심화</div>
         <div class="tab" onclick="filterQuestions('tactical')">🎯 전술의학</div>
         <div class="tab" onclick="filterQuestions('ctm')">🛡️ 대테러의학</div>
+        <div class="tab" onclick="filterQuestions('campaign')">⚔️ 캠페인</div>
       </div>
       <table id="question-analytics-table">
         <thead><tr><th>문항 ID</th><th>모드</th><th>응시 수</th><th>정답 수</th><th>정답률</th><th>평균 소요시간</th></tr></thead>
@@ -466,8 +467,29 @@ const MODE_NAMES = {
   tacticalBoss: {icon: '🎯', name: '전술의학 보스전', color: 'var(--green)'},
   ctm: {icon: '🛡️', name: '대테러의학', color: 'var(--red)'},
   ctmScenario: {icon: '🛡️', name: '대테러 시나리오', color: 'var(--red)'},
-  ctmBoss: {icon: '🛡️', name: '대테러 보스전', color: 'var(--red)'}
+  ctmBoss: {icon: '🛡️', name: '대테러 보스전', color: 'var(--red)'},
+  campaign: {icon: '⚔️', name: '캠페인 모드', color: 'var(--yellow)'},
+  campaign_urban_fire: {icon: '🔥', name: '캠페인: 도심 화재', color: 'var(--orange)'},
+  campaign_chemical: {icon: '☣️', name: '캠페인: 화학 테러', color: 'var(--purple)'},
+  campaign_biological: {icon: '🦠', name: '캠페인: 생물 테러', color: 'var(--green)'},
+  campaign_nuclear: {icon: '☢️', name: '캠페인: 방사능', color: 'var(--yellow)'},
+  campaign_active_shooter: {icon: '🎯', name: '캠페인: 액티브 슈터', color: 'var(--red)'},
+  campaign_multi_terror: {icon: '💀', name: '캠페인: 복합 테러', color: 'var(--red)'}
 };
+
+// Helper: resolve mode name with campaign sub-mode support
+function getModeName(mode) {
+  if (MODE_NAMES[mode]) return MODE_NAMES[mode];
+  // Campaign sub-modes: campaign_urban_fire_ch0 → match campaign_urban_fire
+  if (mode && mode.startsWith('campaign_')) {
+    // Try matching without _chN suffix
+    var base = mode.replace(/_ch\d+$/, '').replace(/_q\d+$/, '');
+    if (MODE_NAMES[base]) return MODE_NAMES[base];
+    // Generic campaign fallback
+    return {icon: '⚔️', name: '캠페인: ' + base.replace('campaign_', ''), color: 'var(--yellow)'};
+  }
+  return {icon: '🎯', name: mode, color: 'var(--accent)'};
+}
 
 function renderModeStats() {
   const stats = dashboardData.mode_stats;
@@ -475,7 +497,7 @@ function renderModeStats() {
   const detailContainer = document.getElementById('mode-detail-stats');
   
   const html = stats.map(s => {
-    const m = MODE_NAMES[s.mode] || {icon: '🎯', name: s.mode, color: 'var(--accent)'};
+    const m = getModeName(s.mode);
     const acc = s.avg_accuracy || 0;
     const barColor = acc >= 80 ? 'var(--green)' : acc >= 60 ? 'var(--yellow)' : 'var(--red)';
     return `
@@ -544,7 +566,7 @@ async function loadSessions(page) {
   tbody.innerHTML = data.sessions.map(s => {
     const modes = JSON.parse(s.modes_completed || '[]');
     const modeBadges = modes.map(m => {
-      const info = MODE_NAMES[m] || {icon:'🎯', name:m};
+      const info = getModeName(m);
       return `<span class="badge badge-blue">${info.icon}</span>`;
     }).join(' ');
     return `<tr>
@@ -595,7 +617,7 @@ async function viewSession(sessionId) {
     <table>
       <thead><tr><th>모드</th><th>점수</th><th>정답/총문항</th><th>소요시간</th></tr></thead>
       <tbody>${modes.map(m => {
-        const info = MODE_NAMES[m.mode] || {icon:'🎯', name:m.mode};
+        const info = getModeName(m.mode);
         return `<tr>
           <td>${info.icon} ${info.name}</td>
           <td>${m.score}점</td>
@@ -751,7 +773,7 @@ function renderDescriptiveStats() {
   // By mode rows
   if (d.by_mode) {
     Object.entries(d.by_mode).forEach(([mode, stats]) => {
-      const info = MODE_NAMES[mode] || {icon:'\ud83c\udfaf', name: mode};
+      const info = getModeName(mode);
       rows.push(buildDescRow(info.icon + ' ' + info.name, stats));
     });
   }
@@ -831,7 +853,7 @@ function renderModeComparisonChart() {
   }
   const entries = Object.entries(d).filter(([,s]) => s && s.mean !== null && s.mean !== undefined);
   const labels = entries.map(([mode]) => {
-    const info = MODE_NAMES[mode] || {name: mode};
+    const info = getModeName(mode);
     return info.name;
   });
   const means = entries.map(([,s]) => s.mean);
@@ -845,14 +867,14 @@ function renderModeComparisonChart() {
         label: '평균 점수',
         data: means,
         backgroundColor: entries.map(([mode]) => {
-          const m = MODE_NAMES[mode];
+          const m = getModeName(mode);
           return m ? m.color.replace('var(--red)', '#ff3b5c').replace('var(--green)', '#00e676')
             .replace('var(--purple)', '#b388ff').replace('var(--yellow)', '#ffca28')
             .replace('var(--cyan)', '#00e5ff').replace('var(--orange)', '#ff9100')
             .replace('var(--accent)', '#448aff') : '#448aff';
         }).map(c => c + '99'),
         borderColor: entries.map(([mode]) => {
-          const m = MODE_NAMES[mode];
+          const m = getModeName(mode);
           return m ? m.color.replace('var(--red)', '#ff3b5c').replace('var(--green)', '#00e676')
             .replace('var(--purple)', '#b388ff').replace('var(--yellow)', '#ffca28')
             .replace('var(--cyan)', '#00e5ff').replace('var(--orange)', '#ff9100')
@@ -886,7 +908,7 @@ function renderReliability() {
   let html = '<div class="research-grid">';
   Object.entries(d).forEach(([mode, r]) => {
     if (!r) return;
-    const info = MODE_NAMES[mode] || {icon: '\ud83c\udfaf', name: mode};
+    const info = getModeName(mode);
     const alpha = r.cronbach_alpha;
     let alphaCls = 'alpha-poor', alphaLabel = '불수용 (< 0.60)';
     if (alpha >= 0.80) { alphaCls = 'alpha-good'; alphaLabel = '우수 (≥ 0.80)'; }
@@ -953,7 +975,7 @@ function renderItemAnalysis(sortCol, asc) {
       </tr></thead>
       <tbody>${sorted.map(item => {
         const cls = ratingClass(item.rating);
-        const info = MODE_NAMES[item.mode] || {name: item.mode};
+        const info = getModeName(item.mode);
         return `<tr>
           <td><code>${item.question_id}</code></td>
           <td>${info.name || item.mode}</td>
@@ -986,12 +1008,12 @@ function renderCorrelationMatrix() {
 
   let html = '<table class="stat-table"><thead><tr><th></th>';
   modes.forEach(m => {
-    const info = MODE_NAMES[m] || {name: m};
+    const info = getModeName(m);
     html += `<th class="corr-cell">${info.name || m}</th>`;
   });
   html += '</tr></thead><tbody>';
   matrix.forEach((row, i) => {
-    const infoI = MODE_NAMES[modes[i]] || {name: modes[i]};
+    const infoI = getModeName(modes[i)] || {name: modes[i]};
     html += `<tr><td><strong>${infoI.name || modes[i]}</strong></td>`;
     row.forEach((r, j) => {
       const bg = i === j ? 'background:var(--surface2)' : `background:${corrColor(r)}`;
@@ -1018,7 +1040,7 @@ function renderTimeAccuracyChart() {
     type: 'scatter',
     data: {
       datasets: d.map((item, i) => {
-        const info = MODE_NAMES[item.mode] || {name: item.mode};
+        const info = getModeName(item.mode);
         return {
           label: info.name || item.mode,
           data: [{x: item.avg_time, y: item.avg_accuracy}],
@@ -1089,8 +1111,8 @@ function renderComparativeAnalysis() {
           <th class="num">p</th><th class="num">Cohen's d</th><th>유의</th>
         </tr></thead>
         <tbody>${d.t_tests.map(t => {
-          const infoA = MODE_NAMES[t.mode_a] || {name: t.mode_a};
-          const infoB = MODE_NAMES[t.mode_b] || {name: t.mode_b};
+          const infoA = getModeName(t.mode_a);
+          const infoB = getModeName(t.mode_b);
           const stars = sigStars(t.p_value);
           const sigCls = t.significant ? 'color:var(--green)' : 'color:var(--text2)';
           return `<tr>
@@ -1164,7 +1186,7 @@ function renderTimeDistChart() {
     canvas.parentElement.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">데이터 부족</p>';
     return;
   }
-  const labels = d.map(item => { const info = MODE_NAMES[item.mode] || {name: item.mode}; return info.name || item.mode; });
+  const labels = d.map(item => { const info = getModeName(item.mode); return info.name || item.mode; });
   const medians = d.map(item => item.median);
   const means = d.map(item => item.mean);
   const q1 = d.map(item => item.q1);
@@ -1231,7 +1253,7 @@ function renderPerformanceCategories() {
     cats.forEach(c => tbl += `<th class="num">${c}</th>`);
     tbl += '</tr></thead><tbody>';
     modes.forEach(mode => {
-      const info = MODE_NAMES[mode] || {name: mode};
+      const info = getModeName(mode);
       tbl += `<tr><td>${info.name || mode}</td>`;
       cats.forEach(c => tbl += `<td class="num">${d.by_mode[mode][c] || 0}</td>`);
       tbl += '</tr>';
@@ -1278,7 +1300,7 @@ function buildPaperTablesHTML() {
   if (d.descriptive && d.descriptive.by_mode) {
     Object.entries(d.descriptive.by_mode).forEach(([mode, s]) => {
       if (!s) return;
-      const info = MODE_NAMES[mode] || {name: mode};
+      const info = getModeName(mode);
       html += `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:6px 10px">${info.name || mode}</td>
         <td style="padding:6px 10px;text-align:center">${s.n || '-'}</td>
@@ -1319,7 +1341,7 @@ function buildPaperTablesHTML() {
   if (d.reliability) {
     Object.entries(d.reliability).forEach(([mode, r]) => {
       if (!r) return;
-      const info = MODE_NAMES[mode] || {name: mode};
+      const info = getModeName(mode);
       html += `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:6px 10px">${info.name || mode}</td>
         <td style="padding:6px 10px;text-align:center">${fmt(r.cronbach_alpha)}</td>
@@ -1356,7 +1378,7 @@ function buildPaperTablesHTML() {
         <tbody>`;
   if (d.item_analysis && d.item_analysis.length) {
     d.item_analysis.forEach(item => {
-      const info = MODE_NAMES[item.mode] || {name: item.mode};
+      const info = getModeName(item.mode);
       html += `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:6px 10px"><code>${item.question_id}</code></td>
         <td style="padding:6px 10px">${info.name || item.mode}</td>
@@ -1393,8 +1415,8 @@ function buildPaperTablesHTML() {
         <tbody>`;
   if (d.comparative && d.comparative.t_tests && d.comparative.t_tests.length) {
     d.comparative.t_tests.forEach(t => {
-      const infoA = MODE_NAMES[t.mode_a] || {name: t.mode_a};
-      const infoB = MODE_NAMES[t.mode_b] || {name: t.mode_b};
+      const infoA = getModeName(t.mode_a);
+      const infoB = getModeName(t.mode_b);
       let stars = '';
       if (t.p_value !== null) {
         if (t.p_value < 0.001) stars = '***';
@@ -1442,7 +1464,7 @@ function buildPaperTablesHTML() {
     </tr>`;
     if (d.performance_categories.by_mode) {
       Object.entries(d.performance_categories.by_mode).forEach(([mode, byMode]) => {
-        const info = MODE_NAMES[mode] || {name: mode};
+        const info = getModeName(mode);
         const total = cats.reduce((s, c) => s + (byMode[c] || 0), 0);
         html += `<tr style="border-bottom:1px solid var(--border)">
           <td style="padding:6px 10px">${info.name || mode}</td>
@@ -1473,11 +1495,11 @@ function buildPaperTablesHTML() {
     html += `<table style="width:100%;border-collapse:collapse;font-size:0.82rem">
         <thead><tr style="border-top:2px solid var(--text);border-bottom:1px solid var(--text)">
           <th style="padding:6px 10px"></th>
-          ${modes.map((m, i) => { const info = MODE_NAMES[m] || {name: m}; return `<th style="padding:6px 10px;text-align:center">${i + 1}. ${info.name || m}</th>`; }).join('')}
+          ${modes.map((m, i) => { const info = getModeName(m); return `<th style="padding:6px 10px;text-align:center">${i + 1}. ${info.name || m}</th>`; }).join('')}
         </tr></thead>
         <tbody>
         ${matrix.map((row, i) => {
-          const infoI = MODE_NAMES[modes[i]] || {name: modes[i]};
+          const infoI = getModeName(modes[i)] || {name: modes[i]};
           return `<tr style="border-bottom:1px solid var(--border)">
             <td style="padding:6px 10px"><strong>${i + 1}. ${infoI.name || modes[i]}</strong></td>
             ${row.map((r, j) => `<td style="padding:6px 10px;text-align:center">${i === j ? '-' : fmt(r)}</td>`).join('')}

@@ -310,10 +310,10 @@ def admin_question_analytics(request: Request, mode: str = ""):
                    CAST(SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as accuracy,
                    AVG(time_taken_sec) as avg_time
             FROM question_responses
-            WHERE mode=?
+            WHERE mode=? OR mode LIKE ? || '\_%' ESCAPE '\\'
             GROUP BY question_id
             ORDER BY accuracy ASC
-        """, [mode]).fetchall()
+        """, [mode, mode]).fetchall()
     else:
         rows = db.execute("""
             SELECT question_id, mode,
