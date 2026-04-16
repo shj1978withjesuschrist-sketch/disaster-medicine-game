@@ -300,8 +300,10 @@ const STORY_ACTS = [
 ];
 
 // ---- DATA TRACKING API ----
-// Render.com 백엔드 URL (배포 후 아래 URL을 실제 Render URL로 교체)
-const TRACKING_API = 'https://disaster-med-backend.onrender.com';
+const TRACKING_API = (() => {
+  const p = '__PORT_8000__';
+  return p.startsWith('__') ? 'http://localhost:8000' : p;
+})();
 
 const Tracker = {
   sessionId: null,
@@ -2240,6 +2242,7 @@ function startEmergoChain(scenarioIdx) {
 
 function renderEmergoPhase() {
   const em = G.emergo;
+  if (!em || !em.scenario) { G.screen = 'modes'; render(); return; }
   const phase = em.scenario.phases[em.phaseIdx];
   if (!phase) { showEmergoFinalResults(); return; }
 
@@ -2248,19 +2251,21 @@ function renderEmergoPhase() {
   else if (phase.task === 'decontamination') renderEmergoDecontam(phase);
   else if (phase.task === 'transport_priority') renderEmergoTransport(phase);
   else if (phase.task === 'ed_management') renderEmergoED(phase);
+  else { showEmergoFinalResults(); }
 }
 
 // ---- PHASE 1: Sieve Triage ----
 function renderEmergoSieve(phase) {
   const em = G.emergo;
-  if (!em._sieveIdx) em._sieveIdx = 0;
-  if (!em._sieveCorrect) em._sieveCorrect = 0;
+  if (em._sieveIdx == null) em._sieveIdx = 0;
+  if (em._sieveCorrect == null) em._sieveCorrect = 0;
 
   const patients = em.patients;
   const currentP = patients[em._sieveIdx];
 
   if (!currentP || em._sieveIdx >= patients.length) {
-    // Sieve 완료 → 다음 단계
+    // Sieve 완료 → 타이머 정지 후 다음 단계
+    stopTimer('emergo_sieve');
     em.phaseScore = Math.round((em._sieveCorrect / patients.length) * 100);
     addScore(em._sieveCorrect * 150);
     addXP(em._sieveCorrect * 30);
@@ -2271,18 +2276,22 @@ function renderEmergoSieve(phase) {
   }
 
   const timeKey = 'emergo_sieve';
-  startCountdown(timeKey, phase.timeLimit, null, () => {
-    // Time's up — auto-advance remaining as wrong
-    for (let i = em._sieveIdx; i < patients.length; i++) {
-      patients[i].currentTriage = 'yellow'; // default
-    }
-    em.phaseScore = Math.round((em._sieveCorrect / patients.length) * 100);
-    addScore(em._sieveCorrect * 150);
-    addXP(em._sieveCorrect * 30);
-    em.phaseIdx++;
-    em._sieveIdx = 0;
-    showEmergoPhaseTransition();
-  });
+  // 타이머는 첫 렌더링에서만 시작 (환자마다 리셋 방지)
+  if (em._sieveIdx === 0 && !em._sieveTimerStarted) {
+    em._sieveTimerStarted = true;
+    startCountdown(timeKey, phase.timeLimit, null, () => {
+      // Time's up — auto-advance remaining as wrong
+      for (let i = em._sieveIdx; i < patients.length; i++) {
+        patients[i].currentTriage = 'yellow'; // default
+      }
+      em.phaseScore = Math.round((em._sieveCorrect / patients.length) * 100);
+      addScore(em._sieveCorrect * 150);
+      addXP(em._sieveCorrect * 30);
+      em.phaseIdx++;
+      em._sieveIdx = 0;
+      showEmergoPhaseTransition();
+    });
+  }
 
   const progress = `${em._sieveIdx + 1}/${patients.length}`;
   const sieveHint = phase.hint || '';
@@ -2372,15 +2381,16 @@ function renderEmergoSort(phase) {
   const em = G.emergo;
   // Only non-black patients continue
   const activePatients = em.patients.filter(p => p.currentTriage !== 'black');
-  if (!em._sortIdx) em._sortIdx = 0;
-  if (!em._sortCorrect) em._sortCorrect = 0;
+  if (em._sortIdx == null) em._sortIdx = 0;
+  if (em._sortCorrect == null) em._sortCorrect = 0;
   if (!em._treatPhase) em._treatPhase = false;
 
   // Phase A: Sort classification
   if (!em._treatPhase) {
     const currentP = activePatients[em._sortIdx];
     if (!currentP || em._sortIdx >= activePatients.length) {
-      // Sort 완료 → 처치 배분 단계
+      // Sort 완료 → 타이머 정지 후 처치 배분 단계
+      stopTimer('emergo_sort');
       em._treatPhase = true;
       em._sortIdx = 0;
       renderEmergoTreat(phase);
@@ -2391,10 +2401,14 @@ function renderEmergoSort(phase) {
     const expectedSort = sortCategory(currentP);
 
     const timeKey = 'emergo_sort';
-    startCountdown(timeKey, phase.timeLimit, null, () => {
-      em._treatPhase = true;
-      renderEmergoTreat(phase);
-    });
+    // 타이머는 첫 렌더링에서만 시작
+    if (em._sortIdx === 0 && !em._sortTimerStarted) {
+      em._sortTimerStarted = true;
+      startCountdown(timeKey, phase.timeLimit, null, () => {
+        em._treatPhase = true;
+        renderEmergoTreat(phase);
+      });
+    }
 
     app.innerHTML = `
       <div class="screen emergo-play-screen">
@@ -2779,6 +2793,12 @@ function emergoEdDecision(patientId, action) {
 // ---- Phase Transition ----
 function showEmergoPhaseTransition() {
   const em = G.emergo;
+  if (!em || !em.scenario) { G.screen = 'modes'; render(); return; }
+
+  // 모든 EMERGO 타이머 정지
+  stopTimer('emergo_sieve');
+  stopTimer('emergo_sort');
+
   const nextPhase = em.scenario.phases[em.phaseIdx];
   const prevPhase = em.scenario.phases[em.phaseIdx - 1];
 
@@ -2813,10 +2833,16 @@ function showEmergoPhaseTransition() {
 // ---- Final Results ----
 function showEmergoFinalResults() {
   const em = G.emergo;
+  if (!em) { G.screen = 'modes'; render(); return; }
+
+  // Stop all EMERGO timers
+  stopTimer('emergo_sieve');
+  stopTimer('emergo_sort');
 
   // Calculate preventable deaths
   let preventable = 0, totalDeaths = 0, survived = 0;
   em.patients.forEach(p => {
+    if (!p.deterioration) { survived++; return; }
     if (p.deterioration.outcome === 'dead' || p.deterioration.treatedOutcome === 'dead') {
       totalDeaths++;
       return;
@@ -2841,11 +2867,10 @@ function showEmergoFinalResults() {
   addXP(300 - preventable * 50);
   checkAchievements();
 
-  Tracker.endMode(survived);
-  Tracker.endSession(G.score, G.level, G.maxStreak, G.modesCompleted);
+  try { Tracker.endMode(survived); } catch(e) { console.warn('Tracker error:', e); }
 
   const gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
-  if (grade === 'S' || grade === 'A') confetti();
+  if (grade === 'S' || grade === 'A') { try { confetti(); } catch(e) {} }
 
   app.innerHTML = `
     <div class="screen emergo-results-screen">
@@ -2883,12 +2908,13 @@ function showEmergoFinalResults() {
         <h3>환자별 결과</h3>
         <div class="epo-list">
           ${em.patients.map(p => {
-            const isDead = p.deterioration.outcome === 'dead' || p.deterioration.treatedOutcome === 'dead' || (!p.treated && p.deterioration.outcome === 'death');
+            const det = p.deterioration || {};
+            const isDead = det.outcome === 'dead' || det.treatedOutcome === 'dead' || (!p.treated && det.outcome === 'death');
             const icon = isDead ? '💀' : p.treated ? '💚' : '⚠️';
             return `<div class="epo-row ${isDead ? 'dead' : 'alive'}">
-              <span>${p.icon}</span>
-              <span>${p.name}</span>
-              <span class="epo-triage triage-${p.currentTriage}">${p.currentTriage?.toUpperCase() || '?'}</span>
+              <span>${p.icon || '👤'}</span>
+              <span>${p.name || 'Unknown'}</span>
+              <span class="epo-triage triage-${p.currentTriage || 'yellow'}">${(p.currentTriage || '?').toUpperCase()}</span>
               <span>${icon}</span>
             </div>`;
           }).join('')}
