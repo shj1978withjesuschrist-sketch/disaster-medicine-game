@@ -371,6 +371,7 @@ const API = (() => {
   const loc = window.location.href;
   const proxyMatch = loc.match(/^(https?:\/\/[^/]+\/sites\/proxy\/[^/]+)/);
   if (proxyMatch) return proxyMatch[1] + '/port/8000';
+  if (loc.includes('github.io')) return 'https://disaster-med-backend.onrender.com';
   return 'http://localhost:8000';
 })();
 

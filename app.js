@@ -302,7 +302,12 @@ const STORY_ACTS = [
 // ---- DATA TRACKING API ----
 const TRACKING_API = (() => {
   const p = '__PORT_8000__';
-  return p.startsWith('__') ? 'http://localhost:8000' : p;
+  if (!p.startsWith('__')) return p;
+  const loc = window.location.href;
+  const proxyMatch = loc.match(/^(https?:\/\/[^/]+\/sites\/proxy\/[^/]+)/);
+  if (proxyMatch) return proxyMatch[1] + '/port/8000';
+  if (loc.includes('github.io')) return 'https://disaster-med-backend.onrender.com';
+  return 'http://localhost:8000';
 })();
 
 const Tracker = {
