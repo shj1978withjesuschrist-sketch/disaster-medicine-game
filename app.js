@@ -4618,6 +4618,16 @@ function useCampaignItem(itemId) {
   }
 }
 
+// Helper: bind HUD item click listeners (called after each campaign screen render)
+function bindCampaignHUDItems() {
+  document.querySelectorAll('.hud-item[data-item-id]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var itemId = this.getAttribute('data-item-id');
+      if (itemId) useCampaignItem(itemId);
+    });
+  });
+}
+
 // ============================================
 // 1. WORLD MAP
 // ============================================
@@ -4868,6 +4878,10 @@ function renderCampaignCinematic() {
     </div>
     ${renderCampaignPlayerHUD()}
   </div>`;
+
+  var cinContBtn = document.getElementById('cinematicContinueBtn');
+  if (cinContBtn) cinContBtn.addEventListener('click', function() { G.screen='campaignBriefing'; render(); });
+  bindCampaignHUDItems();
 }
 
 // ============================================
