@@ -602,23 +602,25 @@ function updateStreak(correct) {
 
 // ---- TIMER ----
 function startCountdown(key, seconds, onTick, onEnd) {
+  const idKey = key + '__intervalId';
+  clearInterval(G[idKey]);
   G[key] = seconds;
-  const id = key.replace('Timer', 'TimerId');
-  clearInterval(G[id]);
-  G[id] = setInterval(() => {
+  G[idKey] = setInterval(() => {
     G[key]--;
     if (onTick) onTick(G[key]);
     if (G[key] <= 5 && G[key] > 0) sfx('tick');
     if (G[key] <= 0) {
-      clearInterval(G[id]);
+      clearInterval(G[idKey]);
+      G[idKey] = null;
       if (onEnd) onEnd();
     }
   }, 1000);
 }
 
 function stopTimer(key) {
-  const id = key.replace('Timer', 'TimerId');
-  clearInterval(G[id]);
+  const idKey = key + '__intervalId';
+  clearInterval(G[idKey]);
+  G[idKey] = null;
 }
 
 // ---- EFFECTS ----
@@ -2232,7 +2234,23 @@ function startEmergoChain(scenarioIdx) {
     totalScore: 0,
     sieveResults: [],
     transportQueue: [],
-    preventableDeaths: 0
+    preventableDeaths: 0,
+    // Phase 내부 상태 초기화
+    _sieveIdx: 0,
+    _sieveCorrect: 0,
+    _sieveTimerStarted: false,
+    _sortIdx: 0,
+    _sortCorrect: 0,
+    _sortTimerStarted: false,
+    _treatPhase: false,
+    _treatCurrent: 0,
+    _treatAssignments: {},
+    _deconQueue: null,
+    _deconDone: null,
+    _deconSlots: 0,
+    _transportOrder: null,
+    _ambulancesAvail: null,
+    _edProcessed: null
   };
   G.screen = 'emergo';
   Tracker.startMode('emergo_chain');
