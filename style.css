@@ -3419,3 +3419,8 @@ input {
 
 /* Campaign screen padding for player HUD */
 .campaign-screen-wrap { padding-bottom: 80px; overflow-y: auto; height: 100dvh; }
+
+/* Footer credit branding */
+.game-footer-credit { margin-top: 24px; padding: 16px 12px 8px; text-align: center; border-top: 1px solid rgba(255,255,255,0.08); }
+.game-footer-credit p { margin: 0; font-size: 0.65rem; color: #5a5e72; line-height: 1.6; letter-spacing: 0.02em; }
+.game-footer-credit p:first-child { color: #6b6f85; }

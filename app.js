@@ -955,6 +955,10 @@ function renderIntro() {
       <div class="admin-link-wrap">
         <button class="admin-link-btn" id="admin-link-btn">🔐 관리자</button>
       </div>
+      <div class="game-footer-credit">
+        <p>© 2026 신재난의학 아카데미 유한책임회사. All rights reserved.</p>
+        <p>교육 운영: 순천향대학교 재난의학센터</p>
+      </div>
     </div>`;
 
   // QR code
