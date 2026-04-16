@@ -367,7 +367,11 @@ tr:hover td{background:rgba(68,138,255,0.05)}
 <script>
 const API = (() => {
   const p = '__PORT_8000__';
-  return p.startsWith('__') ? 'http://localhost:8000' : p;
+  if (!p.startsWith('__')) return p;
+  const loc = window.location.href;
+  const proxyMatch = loc.match(/^(https?:\/\/[^/]+\/sites\/proxy\/[^/]+)/);
+  if (proxyMatch) return proxyMatch[1] + '/port/8000';
+  return 'http://localhost:8000';
 })();
 
 let adminToken = '';
@@ -1013,7 +1017,7 @@ function renderCorrelationMatrix() {
   });
   html += '</tr></thead><tbody>';
   matrix.forEach((row, i) => {
-    const infoI = getModeName(modes[i)] || {name: modes[i]};
+    const infoI = getModeName(modes[i]) || {name: modes[i]};
     html += `<tr><td><strong>${infoI.name || modes[i]}</strong></td>`;
     row.forEach((r, j) => {
       const bg = i === j ? 'background:var(--surface2)' : `background:${corrColor(r)}`;
@@ -1499,7 +1503,7 @@ function buildPaperTablesHTML() {
         </tr></thead>
         <tbody>
         ${matrix.map((row, i) => {
-          const infoI = getModeName(modes[i)] || {name: modes[i]};
+          const infoI = getModeName(modes[i]) || {name: modes[i]};
           return `<tr style="border-bottom:1px solid var(--border)">
             <td style="padding:6px 10px"><strong>${i + 1}. ${infoI.name || modes[i]}</strong></td>
             ${row.map((r, j) => `<td style="padding:6px 10px;text-align:center">${i === j ? '-' : fmt(r)}</td>`).join('')}
