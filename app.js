@@ -4576,7 +4576,7 @@ function renderCampaignPlayerHUD() {
     if (iid) {
       var itemDef = itemData.find(function(d) { return d.id === iid; }) || {};
       var icon = iid === 'hint' ? '💡' : iid === 'medkit' ? '🩹' : iid === 'timefreeze' ? '⏸️' : iid === 'shield' ? '🛡️' : iid === 'doubleXP' ? '⭐' : iid === 'antidote' ? '💉' : '📦';
-      itemSlots.push('<div class="hud-item" onclick="useCampaignItem(\'' + iid + '\')" title="' + (itemDef.desc || '') + '">' + icon + '</div>');
+      itemSlots.push('<div class="hud-item" data-item-id="' + iid + '" title="' + (itemDef.desc || '') + '">' + icon + '</div>');
     } else {
       itemSlots.push('<div class="hud-item empty">·</div>');
     }
@@ -4638,9 +4638,7 @@ function renderCampaignWorldMap() {
     var pct = total > 0 ? Math.round((done.length / total) * 100) : 0;
     var cls = completed ? 'completed' : !unlocked ? 'locked' : '';
     var color = c.cardColor || '#ffd700';
-    var onclick = unlocked ? 'selectCampaign("' + c.id + '")' : 'showAchievement("🔒","잠긴 캠페인","이전 캠페인을 3챕터 이상 완료하세요")';
-
-    return `<div class="campaign-node ${cls}" style="--node-color:${color}" onclick="${onclick}">
+    return `<div class="campaign-node ${cls}" style="--node-color:${color}" data-campaign-id="${c.id}" data-unlocked="${unlocked}">
       <div class="node-icon">${c.icon || '⚔️'}</div>
       <div class="node-title">${(c.title || '').replace(/^.+?\s/, '')}</div>
       <div class="node-subtitle">${c.subtitle || ''}</div>
@@ -4663,12 +4661,28 @@ function renderCampaignWorldMap() {
 
   app.innerHTML = `<div class="campaign-screen-wrap">
     <div class="world-map">
-      <button class="back-btn" onclick="G.screen='modes';render()">← 미션 선택으로</button>
+      <button class="back-btn" id="campaignBackToModes">← 미션 선택으로</button>
       <div class="world-map-title">⚔️ 재난 대응 세계</div>
       <div class="world-map-subtitle">캠페인을 선택하여 재난 현장으로 출동하라</div>
       <div class="campaign-nodes">${nodes}</div>
     </div>
   </div>`;
+
+  // Event delegation for campaign node clicks
+  var backToModesBtn = document.getElementById('campaignBackToModes');
+  if (backToModesBtn) backToModesBtn.addEventListener('click', function() { G.screen='modes'; render(); });
+
+  document.querySelectorAll('.campaign-node').forEach(function(node) {
+    node.addEventListener('click', function() {
+      var cid = this.getAttribute('data-campaign-id');
+      var unlocked = this.getAttribute('data-unlocked') === 'true';
+      if (unlocked) {
+        selectCampaign(cid);
+      } else {
+        showAchievement('🔒','잠긴 캠페인','이전 캠페인을 3챕터 이상 완료하세요');
+      }
+    });
+  });
 }
 
 function selectCampaign(campaignId) {
@@ -4691,7 +4705,7 @@ function renderCampaignRoleSelect() {
 
   var roleCards = roles.map(function(r) {
     var sel = selectedRole === r.id ? 'selected' : '';
-    return `<div class="role-card ${sel}" onclick="selectCampaignRole('${r.id}')">
+    return `<div class="role-card ${sel}" data-role-id="${r.id}">
       <div class="role-emoji">${r.emoji}</div>
       <div class="role-name">${r.name}</div>
       <div class="role-desc">${r.desc}</div>
@@ -4701,16 +4715,23 @@ function renderCampaignRoleSelect() {
 
   app.innerHTML = `<div class="campaign-screen-wrap">
     <div class="role-select">
-      <button class="back-btn" onclick="G.screen='campaign';render()">← 월드맵으로</button>
+      <button class="back-btn" id="roleBackBtn">← 월드맵으로</button>
       <div class="role-select-title">직업 선택</div>
       <div class="role-select-subtitle">${campaign ? campaign.title : ''} — 어떤 역할로 도전하겠습니까?</div>
       <div class="role-grid">${roleCards}</div>
-      <button class="role-confirm-btn" id="roleConfirmBtn" onclick="confirmCampaignRole()"
+      <button class="role-confirm-btn" id="roleConfirmBtn"
         ${selectedRole ? '' : 'disabled'}>
         ${selectedRole ? '출동 준비 완료!' : '직업을 선택하세요'}
       </button>
     </div>
   </div>`;
+
+  // Event listeners
+  document.getElementById('roleBackBtn').addEventListener('click', function() { G.screen='campaign'; render(); });
+  document.getElementById('roleConfirmBtn').addEventListener('click', function() { if (!this.disabled) confirmCampaignRole(); });
+  document.querySelectorAll('.role-card').forEach(function(card) {
+    card.addEventListener('click', function() { selectCampaignRole(this.getAttribute('data-role-id')); });
+  });
 }
 
 function selectCampaignRole(roleId) {
@@ -4764,9 +4785,9 @@ function renderCampaignChapterMap() {
     var cls = isDone ? 'completed' : isActive ? 'active' : isLocked ? 'locked' : '';
     var numClass = isDone ? 'completed' : isActive ? 'active' : 'locked';
     var statusText = isDone ? '✅ 완료' : isActive ? '▶ 현재' : '🔒';
-    var onclick = (!isLocked || isDone) ? 'enterCampaignChapter(' + idx + ')' : '';
+    var clickable = (!isLocked || isDone);
 
-    return `<div class="chapter-node ${cls}" ${onclick ? 'onclick="' + onclick + '"' : ''}>
+    return `<div class="chapter-node ${cls}" ${clickable ? 'data-chapter-idx="' + idx + '"' : ''}>
       <div class="ch-number ${numClass}">${idx + 1}</div>
       <div class="ch-info">
         <div class="ch-title">${ch.title || 'Chapter ' + (idx + 1)}</div>
@@ -4778,7 +4799,7 @@ function renderCampaignChapterMap() {
 
   app.innerHTML = `<div class="campaign-screen-wrap">
     <div class="chapter-map">
-      <button class="back-btn" onclick="G.screen='campaign';render()">← 월드맵으로</button>
+      <button class="back-btn" id="chapterBackToWorld">← 월드맵으로</button>
       <div class="chapter-map-header">
         <div class="campaign-icon">${campaign.icon || '⚔️'}</div>
         <h2>${campaign.title || ''}</h2>
@@ -4788,6 +4809,17 @@ function renderCampaignChapterMap() {
     </div>
     ${renderCampaignPlayerHUD()}
   </div>`;
+
+  // Event listeners for chapter map
+  var chBackBtn = document.getElementById('chapterBackToWorld');
+  if (chBackBtn) chBackBtn.addEventListener('click', function() { G.screen='campaign'; render(); });
+  document.querySelectorAll('.chapter-node[data-chapter-idx]').forEach(function(node) {
+    node.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-chapter-idx'));
+      if (!isNaN(idx)) enterCampaignChapter(idx);
+    });
+  });
+  bindCampaignHUDItems();
 }
 
 function enterCampaignChapter(chapterIdx) {
@@ -4832,7 +4864,7 @@ function renderCampaignCinematic() {
       ${atmosphereHtml}
       <div class="cinematic-text">${cin.text || ''}</div>
       ${dialogueHtml}
-      <button class="cinematic-continue" onclick="G.screen='campaignBriefing';render()">계속 ▶</button>
+      <button class="cinematic-continue" id="cinematicContinueBtn">계속 ▶</button>
     </div>
     ${renderCampaignPlayerHUD()}
   </div>`;
@@ -4854,7 +4886,7 @@ function renderCampaignBriefing() {
 
   app.innerHTML = `<div class="campaign-screen-wrap">
     <div class="briefing">
-      <button class="back-btn" onclick="G.screen='campaignCinematic';render()">← 시네마틱으로</button>
+      <button class="back-btn" id="briefingBackBtn">← 시네마틱으로</button>
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:0.75rem;color:#448aff;letter-spacing:2px;text-transform:uppercase">임무 브리핑</div>
         <div style="font-size:1.2rem;font-weight:700;color:#eef0f6;margin-top:4px">${chapter.title || ''}</div>
@@ -4874,10 +4906,16 @@ function renderCampaignBriefing() {
         <h3>🚒 사용 가능 자원</h3>
         <ul style="list-style:none">${resources}</ul>
       </div>` : ''}
-      <button class="briefing-start-btn" onclick="startCampaignBattle()">⚔️ 작전 시작!</button>
+      <button class="briefing-start-btn" id="briefingStartBtn">⚔️ 작전 시작!</button>
     </div>
     ${renderCampaignPlayerHUD()}
   </div>`;
+
+  var brBackBtn = document.getElementById('briefingBackBtn');
+  if (brBackBtn) brBackBtn.addEventListener('click', function() { G.screen='campaignCinematic'; render(); });
+  var brStartBtn = document.getElementById('briefingStartBtn');
+  if (brStartBtn) brStartBtn.addEventListener('click', function() { startCampaignBattle(); });
+  bindCampaignHUDItems();
 }
 
 // ============================================
@@ -4963,7 +5001,7 @@ function renderCampaignBattle() {
       else if (i === selected) cls = 'wrong';
     }
     var disabledAttr = answered ? 'disabled' : '';
-    return `<button class="battle-option ${cls}" ${disabledAttr} onclick="answerCampaignBattle(${i})">
+    return `<button class="battle-option ${cls}" ${disabledAttr} data-battle-answer="${i}">
       <span class="opt-label">${labels[i]}</span>
       <span>${opt}</span>
     </button>`;
@@ -4986,7 +5024,7 @@ function renderCampaignBattle() {
 
   var nextBtn = '';
   if (answered) {
-    nextBtn = `<button onclick="nextCampaignQuestion()" style="display:block;width:100%;margin-top:12px;padding:12px;background:linear-gradient(135deg,#448aff,#b388ff);color:#fff;font-weight:700;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem">
+    nextBtn = `<button id="battleNextBtn" style="display:block;width:100%;margin-top:12px;padding:12px;background:linear-gradient(135deg,#448aff,#b388ff);color:#fff;font-weight:700;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem">
       ${qIdx + 1 >= questions.length ? '챕터 결과 보기 →' : '다음 질문 →'}
     </button>`;
   }
@@ -5030,6 +5068,17 @@ function renderCampaignBattle() {
     </div>
     ${renderCampaignPlayerHUD()}
   </div>`;
+
+  // Event listeners for battle
+  document.querySelectorAll('[data-battle-answer]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-battle-answer'));
+      if (!isNaN(idx)) answerCampaignBattle(idx);
+    });
+  });
+  var battleNextBtn = document.getElementById('battleNextBtn');
+  if (battleNextBtn) battleNextBtn.addEventListener('click', function() { nextCampaignQuestion(); });
+  bindCampaignHUDItems();
 }
 
 function answerCampaignBattle(idx) {
@@ -5239,10 +5288,10 @@ function renderCampaignChapterResult() {
   var hasNextChapter = campaign && nextChapter < (campaign.chapters || []).length;
 
   var actionBtns = success
-    ? `${hasNextChapter ? `<button onclick="enterCampaignChapter(${nextChapter})" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ffd700,#ff8c00);color:#000;font-weight:700;border:none;border-radius:12px;cursor:pointer">다음 챕터 →</button>` : ''}
-       <button onclick="G.screen='campaignChapters';render()" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#eef0f6;border:none;border-radius:12px;cursor:pointer">챕터 맵으로</button>`
-    : `<button onclick="startCampaignBattle()" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ff3b5c,#ff1744);color:#fff;font-weight:700;border:none;border-radius:12px;cursor:pointer">🔄 재도전</button>
-       <button onclick="G.screen='campaignChapters';render()" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#eef0f6;border:none;border-radius:12px;cursor:pointer">챕터 맵으로</button>`;
+    ? `${hasNextChapter ? `<button id="resultNextChapter" data-next-chapter="${nextChapter}" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ffd700,#ff8c00);color:#000;font-weight:700;border:none;border-radius:12px;cursor:pointer">다음 챕터 →</button>` : ''}
+       <button id="resultToChapterMap" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#eef0f6;border:none;border-radius:12px;cursor:pointer">챕터 맵으로</button>`
+    : `<button id="resultRetry" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ff3b5c,#ff1744);color:#fff;font-weight:700;border:none;border-radius:12px;cursor:pointer">🔄 재도전</button>
+       <button id="resultToChapterMap" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#eef0f6;border:none;border-radius:12px;cursor:pointer">챕터 맵으로</button>`;
 
   app.innerHTML = `<div class="campaign-screen-wrap">
     <div class="chapter-result">
@@ -5270,6 +5319,18 @@ function renderCampaignChapterResult() {
     </div>
     ${renderCampaignPlayerHUD()}
   </div>`;
+
+  // Event listeners for chapter result
+  var nextChBtn = document.getElementById('resultNextChapter');
+  if (nextChBtn) nextChBtn.addEventListener('click', function() {
+    var nc = parseInt(this.getAttribute('data-next-chapter'));
+    if (!isNaN(nc)) enterCampaignChapter(nc);
+  });
+  var retryBtn = document.getElementById('resultRetry');
+  if (retryBtn) retryBtn.addEventListener('click', function() { startCampaignBattle(); });
+  var toChMapBtn = document.getElementById('resultToChapterMap');
+  if (toChMapBtn) toChMapBtn.addEventListener('click', function() { G.screen='campaignChapters'; render(); });
+  bindCampaignHUDItems();
 }
 
 // ============================================
@@ -5327,10 +5388,10 @@ function renderCampaignComplete() {
         <div style="font-size:0.85rem;color:#c8cad8;line-height:1.7">${role.flavor || '탁월한 재난 대응 능력을 증명했습니다.'}</div>
       </div>
 
-      <button onclick="G.screen='campaign';render()" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ffd700,#ff8c00);color:#000;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-size:1rem">
+      <button id="completeToWorld" style="display:block;width:100%;margin-bottom:8px;padding:14px;background:linear-gradient(135deg,#ffd700,#ff8c00);color:#000;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-size:1rem">
         🌍 월드맵으로
       </button>
-      <button onclick="G.screen='modes';render()" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b8fa3;border-radius:12px;cursor:pointer">
+      <button id="completeToModes" style="display:block;width:100%;padding:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b8fa3;border-radius:12px;cursor:pointer">
         🏠 미션 선택으로
       </button>
     </div>
@@ -5338,6 +5399,11 @@ function renderCampaignComplete() {
 
   G.screen = 'campaignComplete';
   G.modesCompleted.add('campaign_' + (c.id || ''));
+
+  var toWorldBtn = document.getElementById('completeToWorld');
+  if (toWorldBtn) toWorldBtn.addEventListener('click', function() { G.screen='campaign'; render(); });
+  var toModesBtn = document.getElementById('completeToModes');
+  if (toModesBtn) toModesBtn.addEventListener('click', function() { G.screen='modes'; render(); });
 }
 
 // ============================================
