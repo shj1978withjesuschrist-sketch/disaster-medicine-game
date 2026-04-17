@@ -996,11 +996,28 @@ function renderIntro() {
   });
   enterBtn.addEventListener('click', startGame);
 
-  // Admin dashboard link
+  // Admin dashboard link — open as overlay iframe to inherit port proxy
   $('admin-link-btn').addEventListener('click', () => {
-    // Navigate to admin.html in the same deployed site
+    // Create fullscreen overlay with iframe
+    let overlay = document.getElementById('admin-overlay');
+    if (overlay) { overlay.style.display = 'flex'; return; }
+    overlay = document.createElement('div');
+    overlay.id = 'admin-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;padding:10px;';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕ 닫기';
+    closeBtn.style.cssText = 'align-self:flex-end;background:#e74c3c;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:14px;cursor:pointer;margin-bottom:8px;font-weight:bold;';
+    closeBtn.addEventListener('click', () => { overlay.style.display = 'none'; });
+    const iframe = document.createElement('iframe');
     const base = window.location.href.replace(/\/[^/]*$/, '/');
-    window.open(base + 'admin.html', '_blank');
+    iframe.src = base + 'admin.html';
+    iframe.style.cssText = 'flex:1;width:100%;max-width:1200px;border:none;border-radius:12px;background:#1a1a2e;';
+    iframe.addEventListener('load', () => {
+      iframe.contentWindow.postMessage({type: 'SET_API_URL', url: TRACKING_API}, '*');
+    });
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(iframe);
+    document.body.appendChild(overlay);
   });
 
   setTimeout(() => nickInput.focus(), 300);

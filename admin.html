@@ -365,7 +365,16 @@ tr:hover td{background:rgba(68,138,255,0.05)}
 </div>
 
 <script>
-const API = (() => {
+let API = (() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('api')) {
+    const raw = decodeURIComponent(params.get('api'));
+    if (raw.startsWith('http')) return raw;
+    const loc = window.location.href;
+    const proxyMatch = loc.match(/^(https?:\/\/[^/]+\/sites\/proxy\/[^/]+)/);
+    if (proxyMatch) return proxyMatch[1] + '/' + raw;
+    return window.location.origin + '/' + raw;
+  }
   const p = '__PORT_8000__';
   if (!p.startsWith('__')) return p;
   const loc = window.location.href;
@@ -374,6 +383,14 @@ const API = (() => {
   if (loc.includes('github.io')) return 'https://disaster-med-backend.onrender.com';
   return 'http://localhost:8000';
 })();
+
+// Listen for API URL from parent window (iframe mode)
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SET_API_URL') {
+    API = e.data.url;
+    console.log('Admin API URL set via postMessage:', API);
+  }
+});
 
 let adminToken = '';
 let currentTab = 'overview';
@@ -479,7 +496,12 @@ const MODE_NAMES = {
   campaign_biological: {icon: '🦠', name: '캠페인: 생물 테러', color: 'var(--green)'},
   campaign_nuclear: {icon: '☢️', name: '캠페인: 방사능', color: 'var(--yellow)'},
   campaign_active_shooter: {icon: '🎯', name: '캠페인: 액티브 슈터', color: 'var(--red)'},
-  campaign_multi_terror: {icon: '💀', name: '캠페인: 복합 테러', color: 'var(--red)'}
+  campaign_multi_terror: {icon: '💀', name: '캠페인: 복합 테러', color: 'var(--red)'},
+  hseep: {icon: '📋', name: 'HSEEP 훈련 설계', color: 'var(--blue)'},
+  hseep_quiz: {icon: '📋', name: 'HSEEP 퀴즈', color: 'var(--blue)'},
+  hseep_scenario: {icon: '🏗️', name: 'HSEEP 훈련 설계 실습', color: 'var(--blue)'},
+  hseep_template: {icon: '📄', name: 'HSEEP 템플릿 빌더', color: 'var(--blue)'},
+  hseep_campaign: {icon: '⚔️', name: 'HSEEP 캠페인', color: 'var(--blue)'}
 };
 
 // Helper: resolve mode name with campaign sub-mode support
