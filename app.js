@@ -703,6 +703,10 @@ function stopTimer(key) {
   G[idKey] = null;
 }
 
+function stopAllTimers() {
+  ['qTimer','advTimer','tacTimer','ctmTimer','triageTimer','mciTimer','ethicsTimer','leaderTimer','teamTimer','bossTimer'].forEach(function(k) { stopTimer(k); });
+}
+
 // ---- EFFECTS ----
 function flashScreen(color) {
   app.classList.add(color === 'green' ? 'flash-green' : 'flash-red');
@@ -1928,7 +1932,8 @@ function renderQuiz() {
     ${renderHUD('qTimer')}
     <div class="screen quiz-game">
       ${G.qIdx === 0 ? charBubble('mentor', mentorLine) : ''}
-      <div class="quiz-progress-bar">
+      <div class="quiz-progress-bar" style="position:relative">
+        <button id="quizExitBtn" style="position:absolute;right:0;top:-2px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#8b8fa3;padding:4px 12px;border-radius:8px;font-size:0.72rem;cursor:pointer">✕ 나가기</button>
         <span class="quiz-pbar-num">${G.qIdx + 1}/${total}</span>
         <div class="pbar-track"><div class="pbar-fill" style="width:${((G.qIdx) / total) * 100}%"></div></div>
       </div>
@@ -1954,6 +1959,9 @@ function renderQuiz() {
         ` : ''}
       </div>
     </div>`;
+
+  var _exitBtn = document.getElementById('quizExitBtn');
+  if (_exitBtn) _exitBtn.addEventListener('click', function() { G.screen = 'modeSelect'; stopAllTimers(); render(); });
 
   if (!G.qAnswered) {
     startCountdown('qTimer', G.qTimePerQ + getTimerBonus('quiz'), updateTimerDisplay, () => {
@@ -3556,7 +3564,8 @@ function renderCBRNEAdv() {
     ${renderHUD('advTimer')}
     <div class="screen quiz-game">
       ${G.advIdx === 0 ? charBubble('mentor', mentorLine) : ''}
-      <div class="quiz-progress-bar">
+      <div class="quiz-progress-bar" style="position:relative">
+        <button id="quizExitBtn" style="position:absolute;right:0;top:-2px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#8b8fa3;padding:4px 12px;border-radius:8px;font-size:0.72rem;cursor:pointer">✕ 나가기</button>
         <span class="quiz-pbar-num">${G.advIdx + 1}/${total}</span>
         <div class="pbar-track"><div class="pbar-fill" style="width:${(G.advIdx / total) * 100}%"></div></div>
       </div>
@@ -3583,6 +3592,9 @@ function renderCBRNEAdv() {
         ` : ''}
       </div>
     </div>`;
+
+  var _exitBtn2 = document.getElementById('quizExitBtn');
+  if (_exitBtn2) _exitBtn2.addEventListener('click', function() { G.screen = 'modeSelect'; stopAllTimers(); render(); });
 
   if (!G.advAnswered) {
     startCountdown('advTimer', 20 + getTimerBonus('cbrneAdv'), updateTimerDisplay, () => {
@@ -4005,7 +4017,8 @@ function renderTactical() {
     ${renderHUD('tacTimer')}
     <div class="screen quiz-game">
       ${G.tacIdx === 0 ? charBubble('mentor', mentorLine) : ''}
-      <div class="quiz-progress-bar">
+      <div class="quiz-progress-bar" style="position:relative">
+        <button id="quizExitBtn" style="position:absolute;right:0;top:-2px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#8b8fa3;padding:4px 12px;border-radius:8px;font-size:0.72rem;cursor:pointer">✕ 나가기</button>
         <span class="quiz-pbar-num">${G.tacIdx + 1}/${total}</span>
         <div class="pbar-track"><div class="pbar-fill" style="width:${(G.tacIdx / total) * 100}%"></div></div>
       </div>
@@ -4032,6 +4045,9 @@ function renderTactical() {
         ` : ''}
       </div>
     </div>`;
+
+  var _exitBtn3 = document.getElementById('quizExitBtn');
+  if (_exitBtn3) _exitBtn3.addEventListener('click', function() { G.screen = 'modeSelect'; stopAllTimers(); render(); });
 
   if (!G.tacAnswered) {
     startCountdown('tacTimer', 20 + getTimerBonus('tactical'), updateTimerDisplay, () => {
@@ -4453,7 +4469,8 @@ function renderCTM() {
     ${renderHUD('ctmTimer')}
     <div class="screen quiz-game">
       ${G.ctmIdx === 0 ? charBubble('mentor', mentorLine) : ''}
-      <div class="quiz-progress-bar">
+      <div class="quiz-progress-bar" style="position:relative">
+        <button id="quizExitBtn" style="position:absolute;right:0;top:-2px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#8b8fa3;padding:4px 12px;border-radius:8px;font-size:0.72rem;cursor:pointer">✕ 나가기</button>
         <span class="quiz-pbar-num">${G.ctmIdx + 1}/${total}</span>
         <div class="pbar-track"><div class="pbar-fill" style="width:${(G.ctmIdx / total) * 100}%"></div></div>
       </div>
@@ -4480,6 +4497,9 @@ function renderCTM() {
         ` : ''}
       </div>
     </div>`;
+
+  var _exitBtn4 = document.getElementById('quizExitBtn');
+  if (_exitBtn4) _exitBtn4.addEventListener('click', function() { G.screen = 'modeSelect'; stopAllTimers(); render(); });
 
   if (!G.ctmAnswered) {
     startCountdown('ctmTimer', 20 + getTimerBonus('ctm'), updateTimerDisplay, () => {
