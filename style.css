@@ -2642,11 +2642,11 @@ input {
 }
 
 /* =============================================
-   EMERGO CHAIN MODE STYLES
+   SURGE CHAIN MODE STYLES
    ============================================= */
 
-/* Emergo badge */
-.emergo-badge, .er-badge {
+/* Surge badge */
+.surge-badge, .er-badge {
   display: inline-block;
   background: linear-gradient(135deg, #3b82f6, #06b6d4);
   color: #fff;
@@ -2657,35 +2657,35 @@ input {
   letter-spacing: 0.5px;
   margin-bottom: 8px;
 }
-.emergo-tag {
+.surge-tag {
   background: linear-gradient(135deg, #3b82f6, #06b6d4) !important;
   color: #fff !important;
 }
 
-/* Emergo select screen */
-.emergo-header {
+/* Surge select screen */
+.surge-header {
   text-align: center;
   padding: 20px 0 10px;
 }
-.emergo-header h2 {
+.surge-header h2 {
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--text);
   margin: 8px 0 4px;
 }
-.emergo-header p {
+.surge-header p {
   color: var(--text2);
   font-size: 0.9rem;
 }
 
 /* Scenario cards */
-.emergo-scenario-list {
+.surge-scenario-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 10px 0;
 }
-.emergo-scenario-card {
+.surge-scenario-card {
   display: flex;
   align-items: flex-start;
   gap: 14px;
@@ -2697,7 +2697,7 @@ input {
   cursor: pointer;
   transition: all 0.3s;
 }
-.emergo-scenario-card:hover {
+.surge-scenario-card:hover {
   border-color: #3b82f6;
   transform: translateY(-2px);
   box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
@@ -2731,13 +2731,13 @@ input {
   border-radius: 6px;
 }
 
-/* Emergo mode card in grid */
-.emergo-card {
+/* Surge mode card in grid */
+.surge-card {
   border-color: #3b82f6 !important;
   position: relative;
   overflow: hidden;
 }
-.emergo-card::before {
+.surge-card::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -2746,7 +2746,7 @@ input {
 }
 
 /* Phase bar */
-.emergo-phase-bar {
+.surge-phase-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2770,14 +2770,14 @@ input {
 }
 
 /* Patient card */
-.emergo-patient-card {
+.surge-patient-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;
   margin-bottom: 12px;
 }
-.emergo-patient-card.mini {
+.surge-patient-card.mini {
   padding: 12px;
 }
 .epc-header {
@@ -2864,7 +2864,7 @@ input {
 }
 
 /* Triage buttons */
-.emergo-triage-buttons, .emergo-sort-buttons {
+.surge-triage-buttons, .surge-sort-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
@@ -2891,22 +2891,22 @@ input {
 .etb.t1:hover { background: rgba(239,68,68,0.25); }
 
 /* Hint box */
-.emergo-hint {
+.surge-hint {
   margin-top: 8px;
 }
-.emergo-hint details {
+.surge-hint details {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 14px;
 }
-.emergo-hint summary {
+.surge-hint summary {
   cursor: pointer;
   font-size: 0.82rem;
   color: #3b82f6;
   font-weight: 600;
 }
-.emergo-hint p {
+.surge-hint p {
   font-size: 0.8rem;
   color: var(--text2);
   margin-top: 8px;
@@ -2914,7 +2914,7 @@ input {
 }
 
 /* Feedback flash */
-.emergo-feedback {
+.surge-feedback {
   position: fixed;
   top: 80px;
   left: 50%;
@@ -2927,12 +2927,12 @@ input {
   pointer-events: none;
   animation: feedbackPop 0.8s ease-out forwards;
 }
-.emergo-feedback.correct {
+.surge-feedback.correct {
   background: rgba(16,185,129,0.2);
   color: #10b981;
   border: 1px solid rgba(16,185,129,0.3);
 }
-.emergo-feedback.wrong {
+.surge-feedback.wrong {
   background: rgba(239,68,68,0.2);
   color: #ef4444;
   border: 1px solid rgba(239,68,68,0.3);
@@ -2945,7 +2945,7 @@ input {
 }
 
 /* Treatment grid */
-.emergo-treat-grid {
+.surge-treat-grid {
   margin-bottom: 8px;
 }
 .treat-instruction {
@@ -2982,13 +2982,13 @@ input {
 .tb-time { font-size: 0.7rem; color: var(--text2); }
 
 /* Decon / Transport list */
-.emergo-decon-info, .emergo-transport-info {
+.surge-decon-info, .surge-transport-info {
   text-align: center;
   padding: 10px 0;
   color: var(--text2);
   font-size: 0.88rem;
 }
-.emergo-decon-list, .emergo-transport-list {
+.surge-decon-list, .surge-transport-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -3021,12 +3021,12 @@ input {
 .tp-urgency { font-size: 0.75rem; color: #f59e0b; font-weight: 600; flex-shrink: 0; }
 
 /* ED actions */
-.emergo-ed-actions {
+.surge-ed-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.emergo-ed-actions > p {
+.surge-ed-actions > p {
   font-size: 0.85rem;
   color: var(--text2);
   margin-bottom: 4px;
@@ -3053,7 +3053,7 @@ input {
 .ea-info span { color: var(--text2); font-size: 0.8rem; }
 
 /* Phase transition */
-.emergo-transition-screen {
+.surge-transition-screen {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3062,15 +3062,15 @@ input {
   padding: 40px 20px;
   text-align: center;
 }
-.emergo-phase-complete .epc-check {
+.surge-phase-complete .epc-check {
   font-size: 3rem;
   margin-bottom: 8px;
 }
-.emergo-phase-complete h2 {
+.surge-phase-complete h2 {
   font-size: 1.3rem;
   color: var(--text);
 }
-.emergo-next-phase {
+.surge-next-phase {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -3081,13 +3081,13 @@ input {
   font-size: 2.5rem;
   margin-bottom: 8px;
 }
-.emergo-next-phase h3 {
+.surge-next-phase h3 {
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--text);
   margin-bottom: 8px;
 }
-.emergo-next-phase p {
+.surge-next-phase p {
   font-size: 0.85rem;
   color: var(--text2);
   line-height: 1.5;
@@ -3108,19 +3108,19 @@ input {
 }
 
 /* Final results */
-.emergo-results-screen {
+.surge-results-screen {
   padding: 20px 16px;
 }
-.emergo-results-header {
+.surge-results-header {
   text-align: center;
   margin-bottom: 12px;
 }
-.emergo-results-header h2 {
+.surge-results-header h2 {
   font-size: 1.2rem;
   color: var(--text);
   margin-top: 6px;
 }
-.emergo-result-stats {
+.surge-result-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
@@ -3152,14 +3152,14 @@ input {
 }
 
 /* Patient outcomes list */
-.emergo-patient-outcomes {
+.surge-patient-outcomes {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
   margin-bottom: 12px;
 }
-.emergo-patient-outcomes h3 {
+.surge-patient-outcomes h3 {
   font-size: 0.95rem;
   color: var(--text);
   margin-bottom: 10px;
@@ -3189,14 +3189,14 @@ input {
 }
 
 /* Debrief */
-.emergo-debrief {
+.surge-debrief {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
   margin-bottom: 16px;
 }
-.emergo-debrief h3 {
+.surge-debrief h3 {
   font-size: 0.95rem;
   color: var(--text);
   margin-bottom: 8px;
@@ -3207,16 +3207,16 @@ input {
   line-height: 1.6;
 }
 
-/* EMERGO screens mobile scroll */
-.emergo-screen > *,
-.emergo-play-screen > *,
-.emergo-results-screen > * {
+/* SURGE screens mobile scroll */
+.surge-screen > *,
+.surge-play-screen > *,
+.surge-results-screen > * {
   flex-shrink: 0;
 }
 
 /* Mobile adjustments */
 @media (max-width: 600px) {
-  .emergo-result-stats {
+  .surge-result-stats {
     grid-template-columns: repeat(2, 1fr);
   }
   .treat-options {
@@ -3225,7 +3225,7 @@ input {
   .epc-vitals {
     grid-template-columns: repeat(2, 1fr);
   }
-  .emergo-triage-buttons, .emergo-sort-buttons {
+  .surge-triage-buttons, .surge-sort-buttons {
     grid-template-columns: 1fr 1fr;
   }
 }

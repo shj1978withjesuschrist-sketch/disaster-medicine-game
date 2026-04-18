@@ -1,5 +1,5 @@
 // ============================================
-// EMERGO TRAIN SYSTEM — 디지털 이식
+// SURGE TRAIN SYSTEM — 디지털 이식
 // 시간 기반 환자 관리 + 연속 체인 + 자원 배분
 // ============================================
 
@@ -33,8 +33,8 @@ const RESOURCE_TYPES = {
   firstAid:  { name: '응급구조사', icon: '⛑️', color: '#ef4444' }
 };
 
-// ---- EMERGO 환자 뱅크 (40명 — Sieve/Sort 데이터 포함) ----
-const EMERGO_PATIENTS = [
+// ---- SURGE 환자 뱅크 (40명 — Sieve/Sort 데이터 포함) ----
+const SURGE_PATIENTS = [
   // === 현장 Sieve: RED (즉시) ===
   {
     id: 'E-001', name: '김태현', age: 38, gender: '남', icon: '👨',
@@ -363,7 +363,7 @@ const EMERGO_PATIENTS = [
 ];
 
 // ---- 연속 체인 시나리오 ----
-const EMERGO_CHAIN_SCENARIOS = [
+const SURGE_CHAIN_SCENARIOS = [
   {
     id: 'chain-1',
     title: '도심 복합건물 폭발',
