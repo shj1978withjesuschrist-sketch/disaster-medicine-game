@@ -299,6 +299,62 @@ const STORY_ACTS = [
   }
 ];
 
+// ---- LOCAL DATA STORE ----
+const LocalStore = {
+  _key: 'disaster_med_sessions',
+
+  getSessions() {
+    try { return JSON.parse(localStorage.getItem(this._key) || '[]'); }
+    catch(e) { return []; }
+  },
+
+  saveSession(session) {
+    const sessions = this.getSessions();
+    sessions.push(session);
+    // Keep last 500 sessions to avoid localStorage overflow
+    if (sessions.length > 500) sessions.splice(0, sessions.length - 500);
+    localStorage.setItem(this._key, JSON.stringify(sessions));
+  },
+
+  getCurrentSession() {
+    try { return JSON.parse(sessionStorage.getItem('current_session') || 'null'); }
+    catch(e) { return null; }
+  },
+
+  updateCurrentSession(data) {
+    const current = this.getCurrentSession() || {
+      nickname: '', started_at: new Date().toISOString(),
+      modes: [], answers: [], device: 'unknown'
+    };
+    Object.assign(current, data);
+    sessionStorage.setItem('current_session', JSON.stringify(current));
+  },
+
+  addAnswer(answer) {
+    const current = this.getCurrentSession();
+    if (!current) return;
+    if (!current.answers) current.answers = [];
+    current.answers.push(answer);
+    sessionStorage.setItem('current_session', JSON.stringify(current));
+  },
+
+  addModeResult(result) {
+    const current = this.getCurrentSession();
+    if (!current) return;
+    if (!current.modes) current.modes = [];
+    current.modes.push(result);
+    sessionStorage.setItem('current_session', JSON.stringify(current));
+  },
+
+  finishSession(summary) {
+    const current = this.getCurrentSession();
+    if (!current) return;
+    Object.assign(current, summary, { ended_at: new Date().toISOString() });
+    this.saveSession(current);
+    sessionStorage.removeItem('current_session');
+  }
+};
+
 // ---- DATA TRACKING API ----
 const TRACKING_API = (() => {
   const p = '__PORT_8000__';
@@ -322,8 +378,9 @@ const Tracker = {
 
   async startSession(nickname) {
     if (!this.enabled) return;
+    const deviceInfo = /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
+    LocalStore.updateCurrentSession({ nickname, started_at: new Date().toISOString(), device: deviceInfo, modes: [], answers: [] });
     try {
-      const deviceInfo = /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop';
       const res = await fetch(`${TRACKING_API}/api/session/start`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -337,6 +394,7 @@ const Tracker = {
   },
 
   async endSession(totalScore, maxLevel, maxStreak, modesCompleted) {
+    LocalStore.finishSession({ total_score: totalScore, max_level: maxLevel, max_streak: maxStreak, modes_completed: [...modesCompleted] });
     if (!this.enabled || !this.sessionId) return;
     try {
       await fetch(`${TRACKING_API}/api/session/end`, {
@@ -366,10 +424,11 @@ const Tracker = {
   },
 
   async recordAnswer(questionId, selectedAnswer, isCorrect) {
-    if (!this.enabled || !this.sessionId) return;
     const timeTaken = Math.round((Date.now() - this.questionStartTime) / 1000);
     this.modeTotal++;
     if (isCorrect) this.modeCorrect++;
+    LocalStore.addAnswer({ mode: this.currentMode, question_id: String(questionId), selected: String(selectedAnswer), correct: isCorrect, time_sec: timeTaken, at: new Date().toISOString() });
+    if (!this.enabled || !this.sessionId) return;
     try {
       await fetch(`${TRACKING_API}/api/question/response`, {
         method: 'POST',
@@ -387,9 +446,10 @@ const Tracker = {
   },
 
   async endMode(score) {
-    if (!this.enabled || !this.sessionId) return;
     const timeSpent = Math.round((Date.now() - this.modeStartTime) / 1000);
     this.modeScore = score;
+    LocalStore.addModeResult({ mode: this.currentMode, score, correct: this.modeCorrect, total: this.modeTotal, time_sec: timeSpent, at: new Date().toISOString() });
+    if (!this.enabled || !this.sessionId) return;
     try {
       await fetch(`${TRACKING_API}/api/mode/result`, {
         method: 'POST',
@@ -928,6 +988,459 @@ function render() {
   else if (s === 'ctmBoss') renderCTMBoss();
 }
 
+// ---- INLINE ADMIN DASHBOARD ----
+function renderInlineAdmin() {
+  const MODE_LABELS = {
+    triage: 'START Triage',
+    cbrne: 'CBRNE 대응',
+    mci: 'MCI 지휘관',
+    quiz: '재난의학 퀴즈',
+    ethics: '윤리적 딥렉마',
+    leadership: '리더십 챌린지',
+    teamwork: '팀워크 미션',
+    cbrneAdv: 'CBRNE 심화',
+    tactical: '전술의학',
+    ctm: '대테러의학',
+    hseep: 'HSEEP 훈련 설계',
+    boss: '보스 도전',
+    emergo: 'EMERGO 시나리오'
+  };
+
+  // Remove existing overlay if present
+  const existing = document.getElementById('admin-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'admin-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;overflow-y:auto;font-family:system-ui,sans-serif;';
+
+  // State
+  let adminLoggedIn = false;
+  let currentTab = 0;
+  let sortCol = null;
+  let sortAsc = true;
+  let searchQuery = '';
+  let selectedSession = null;
+
+  function fmt(dt) {
+    if (!dt) return '-';
+    try { return new Date(dt).toLocaleString('ko-KR'); } catch(e) { return dt; }
+  }
+
+  function renderOverlay() {
+    overlay.innerHTML = '';
+
+    // Header bar
+    const header = document.createElement('div');
+    header.style.cssText = 'width:100%;max-width:1200px;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;box-sizing:border-box;';
+    header.innerHTML = '<span style="color:#a78bfa;font-weight:bold;font-size:18px">🛡️ 리얼타임 관리자 대시보드</span>';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕ 닫기';
+    closeBtn.style.cssText = 'background:#e74c3c;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:bold;';
+    closeBtn.addEventListener('click', () => overlay.remove());
+    header.appendChild(closeBtn);
+    overlay.appendChild(header);
+
+    const main = document.createElement('div');
+    main.style.cssText = 'width:100%;max-width:1200px;flex:1;padding:0 16px 32px;box-sizing:border-box;';
+    overlay.appendChild(main);
+
+    if (!adminLoggedIn) {
+      renderLoginScreen(main);
+    } else {
+      renderDashboard(main);
+    }
+  }
+
+  function renderLoginScreen(container) {
+    container.innerHTML = '';
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#1a1a2e;border-radius:16px;padding:48px;max-width:400px;margin:80px auto;text-align:center;border:1px solid #2d2d4e;';
+    card.innerHTML = '<div style="font-size:48px;margin-bottom:16px">🔐</div>' +
+      '<h2 style="color:#e0e0ff;margin:0 0 8px">관리자 로그인</h2>' +
+      '<p style="color:#888;margin:0 0 24px;font-size:14px">비밀번호를 입력하세요</p>';
+    const pwInput = document.createElement('input');
+    pwInput.type = 'password';
+    pwInput.placeholder = '비밀번호';
+    pwInput.style.cssText = 'width:100%;padding:12px 16px;border-radius:8px;border:1px solid #3d3d5e;background:#0f0f23;color:#e0e0ff;font-size:15px;box-sizing:border-box;margin-bottom:12px;outline:none;';
+    const errMsg = document.createElement('p');
+    errMsg.style.cssText = 'color:#e74c3c;font-size:13px;margin:0 0 12px;display:none;';
+    errMsg.textContent = '비밀번호가 맞지 않습니다.';
+    const loginBtn = document.createElement('button');
+    loginBtn.textContent = '로그인';
+    loginBtn.style.cssText = 'width:100%;padding:12px;border-radius:8px;border:none;background:#7c3aed;color:#fff;font-size:15px;font-weight:bold;cursor:pointer;';
+    function tryLogin() {
+      if (pwInput.value === 'disaster2026!') {
+        adminLoggedIn = true;
+        renderOverlay();
+      } else {
+        errMsg.style.display = 'block';
+        pwInput.value = '';
+        pwInput.focus();
+      }
+    }
+    loginBtn.addEventListener('click', tryLogin);
+    pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+    card.appendChild(pwInput);
+    card.appendChild(errMsg);
+    card.appendChild(loginBtn);
+    container.appendChild(card);
+    setTimeout(() => pwInput.focus(), 50);
+  }
+
+  function renderDashboard(container) {
+    const sessions = LocalStore.getSessions();
+
+    container.innerHTML = '';
+
+    // Stats row
+    const totalSessions = sessions.length;
+    const uniqueNicks = new Set(sessions.map(s => s.nickname)).size;
+    const avgScore = totalSessions ? Math.round(sessions.reduce((a, s) => a + (s.total_score || 0), 0) / totalSessions) : 0;
+    const modeCount = {};
+    sessions.forEach(s => (s.modes || []).forEach(m => { modeCount[m.mode] = (modeCount[m.mode] || 0) + 1; }));
+    const topMode = Object.entries(modeCount).sort((a, b) => b[1] - a[1])[0];
+    const mobileCnt = sessions.filter(s => s.device === 'mobile').length;
+    const desktopCnt = totalSessions - mobileCnt;
+
+    // Tabs
+    const tabs = ['📊 개요', '👥 학생 목록', '📈 모드별 분석', '🔍 상세 데이터'];
+    const tabBar = document.createElement('div');
+    tabBar.style.cssText = 'display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #2d2d4e;padding-bottom:0;';
+    tabs.forEach((t, i) => {
+      const tb = document.createElement('button');
+      tb.textContent = t;
+      tb.style.cssText = 'padding:10px 18px;border:none;border-radius:8px 8px 0 0;font-size:14px;font-weight:bold;cursor:pointer;transition:all 0.15s;' +
+        (currentTab === i ? 'background:#7c3aed;color:#fff;' : 'background:#1a1a2e;color:#888;');
+      tb.addEventListener('click', () => { currentTab = i; searchQuery = ''; sortCol = null; selectedSession = null; renderDashboard(container); });
+      tabBar.appendChild(tb);
+    });
+    container.appendChild(tabBar);
+
+    // Export + logout row
+    const actionRow = document.createElement('div');
+    actionRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-bottom:16px;';
+    const csvBtn = document.createElement('button');
+    csvBtn.textContent = '📥 CSV 내보내기';
+    csvBtn.style.cssText = 'padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:bold;cursor:pointer;';
+    csvBtn.addEventListener('click', () => exportCSV(sessions));
+    const logoutBtn = document.createElement('button');
+    logoutBtn.textContent = '🚪 로그아웃';
+    logoutBtn.style.cssText = 'padding:8px 16px;background:#374151;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;';
+    logoutBtn.addEventListener('click', () => { adminLoggedIn = false; renderOverlay(); });
+    actionRow.appendChild(csvBtn);
+    actionRow.appendChild(logoutBtn);
+    container.appendChild(actionRow);
+
+    if (currentTab === 0) renderTabOverview(container, sessions, { totalSessions, uniqueNicks, avgScore, topMode, mobileCnt, desktopCnt });
+    else if (currentTab === 1) renderTabStudents(container, sessions);
+    else if (currentTab === 2) renderTabModes(container, sessions);
+    else if (currentTab === 3) renderTabDetail(container, sessions);
+  }
+
+  function card(content, extra) {
+    const d = document.createElement('div');
+    d.style.cssText = 'background:#1a1a2e;border-radius:12px;padding:20px;border:1px solid #2d2d4e;' + (extra || '');
+    d.innerHTML = content;
+    return d;
+  }
+
+  function statCard(label, value, color) {
+    return card(
+      '<div style="color:#888;font-size:12px;margin-bottom:6px">' + label + '</div>' +
+      '<div style="font-size:28px;font-weight:bold;color:' + (color || '#a78bfa') + '">' + value + '</div>',
+      'flex:1;min-width:140px;'
+    );
+  }
+
+  function makeTable(headers, rows, opts) {
+    opts = opts || {};
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'overflow-x:auto;';
+    const tbl = document.createElement('table');
+    tbl.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px;';
+    const thead = document.createElement('thead');
+    const hrow = document.createElement('tr');
+    headers.forEach((h, i) => {
+      const th = document.createElement('th');
+      th.textContent = h.label;
+      th.style.cssText = 'padding:10px 12px;text-align:left;color:#a78bfa;font-weight:bold;background:#12122a;border-bottom:2px solid #2d2d4e;white-space:nowrap;' +
+        (opts.sortable ? 'cursor:pointer;user-select:none;' : '');
+      if (opts.sortable) {
+        th.addEventListener('click', () => {
+          if (sortCol === i) sortAsc = !sortAsc;
+          else { sortCol = i; sortAsc = true; }
+          opts.onSort();
+        });
+        if (sortCol === i) th.textContent += sortAsc ? ' ▲' : ' ▼';
+      }
+      hrow.appendChild(th);
+    });
+    thead.appendChild(hrow);
+    tbl.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    rows.forEach((row, ri) => {
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'background:' + (ri % 2 === 0 ? '#0f0f23' : '#1a1a2e') + ';';
+      if (opts.onRowClick) {
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('mouseenter', () => { tr.style.background = '#2d1b69'; });
+        tr.addEventListener('mouseleave', () => { tr.style.background = ri % 2 === 0 ? '#0f0f23' : '#1a1a2e'; });
+        tr.addEventListener('click', () => opts.onRowClick(row, ri));
+      }
+      row.forEach(cell => {
+        const td = document.createElement('td');
+        td.style.cssText = 'padding:8px 12px;color:#e0e0ff;border-bottom:1px solid #1e1e3e;';
+        if (typeof cell === 'object' && cell !== null && cell.__html) td.innerHTML = cell.__html;
+        else td.textContent = cell === null || cell === undefined ? '-' : String(cell);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+    return wrap;
+  }
+
+  function renderTabOverview(container, sessions, stats) {
+    // Stat cards
+    const statsRow = document.createElement('div');
+    statsRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;';
+    statsRow.appendChild(statCard('전체 세션', stats.totalSessions, '#60a5fa'));
+    statsRow.appendChild(statCard('유니크 닉네임', stats.uniqueNicks, '#34d399'));
+    statsRow.appendChild(statCard('평균 점수', stats.avgScore, '#fbbf24'));
+    statsRow.appendChild(statCard('인기 모드', stats.topMode ? (MODE_LABELS[stats.topMode[0]] || stats.topMode[0]) : '-', '#f472b6'));
+    statsRow.appendChild(statCard('모바일', stats.mobileCnt, '#a78bfa'));
+    statsRow.appendChild(statCard('데스크탑', stats.desktopCnt, '#a78bfa'));
+    container.appendChild(statsRow);
+
+    // Recent 10 sessions table
+    const h = document.createElement('h3');
+    h.style.cssText = 'color:#e0e0ff;margin:0 0 12px;';
+    h.textContent = '친근 10개 세션';
+    container.appendChild(h);
+
+    const recent = sessions.slice(-10).reverse();
+    const headers = [
+      { label: '닉네임' }, { label: '시작' }, { label: '완료' },
+      { label: '점수' }, { label: '레벨' }, { label: '연속정답' }, { label: '기기' }
+    ];
+    const rows = recent.map(s => [
+      s.nickname || '-', fmt(s.started_at), fmt(s.ended_at),
+      s.total_score || 0, s.max_level || '-', s.max_streak || 0, s.device || '-'
+    ]);
+    container.appendChild(makeTable(headers, rows));
+  }
+
+  function renderTabStudents(container, sessions) {
+    // Search
+    const searchRow = document.createElement('div');
+    searchRow.style.cssText = 'margin-bottom:14px;display:flex;gap:8px;align-items:center;';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = '닉네임 검색...';
+    searchInput.value = searchQuery;
+    searchInput.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid #3d3d5e;background:#0f0f23;color:#e0e0ff;font-size:14px;width:240px;outline:none;';
+    searchInput.addEventListener('input', () => { searchQuery = searchInput.value; renderTabStudents(container, sessions); });
+    searchRow.appendChild(searchInput);
+    const countEl = document.createElement('span');
+    countEl.style.cssText = 'color:#888;font-size:13px;';
+    searchRow.appendChild(countEl);
+    container.appendChild(searchRow);
+
+    const headers = [
+      { label: '닉네임' }, { label: '접속 시간' }, { label: '성요시간' },
+      { label: '점수' }, { label: '레벨' }, { label: '연속 정답' }, { label: '완료 모드' }, { label: '기기' }
+    ];
+
+    let filtered = sessions.filter(s => !searchQuery || (s.nickname || '').toLowerCase().includes(searchQuery.toLowerCase()));
+
+    if (sortCol !== null) {
+      const colIdx = sortCol;
+      filtered = [...filtered].sort((a, b) => {
+        const vals = [
+          [a.nickname, b.nickname],
+          [a.started_at, b.started_at],
+          [a.ended_at, b.ended_at],
+          [a.total_score || 0, b.total_score || 0],
+          [a.max_level || 0, b.max_level || 0],
+          [a.max_streak || 0, b.max_streak || 0],
+          [(a.modes_completed || []).length, (b.modes_completed || []).length],
+          [a.device, b.device]
+        ];
+        const [av, bv] = vals[colIdx] || [0, 0];
+        if (av < bv) return sortAsc ? -1 : 1;
+        if (av > bv) return sortAsc ? 1 : -1;
+        return 0;
+      });
+    }
+
+    countEl.textContent = filtered.length + '명';
+
+    const rows = filtered.map(s => [
+      s.nickname || '-',
+      fmt(s.started_at),
+      fmt(s.ended_at),
+      s.total_score || 0,
+      s.max_level || '-',
+      s.max_streak || 0,
+      (s.modes_completed || []).map(m => MODE_LABELS[m] || m).join(', ') || '-',
+      s.device || '-'
+    ]);
+
+    const tbl = makeTable(headers, rows, {
+      sortable: true,
+      onSort: () => renderTabStudents(container, sessions)
+    });
+    container.appendChild(tbl);
+  }
+
+  function renderTabModes(container, sessions) {
+    // Aggregate per mode
+    const modeStats = {};
+    sessions.forEach(s => {
+      (s.modes || []).forEach(m => {
+        if (!modeStats[m.mode]) modeStats[m.mode] = { count: 0, totalScore: 0, totalCorrect: 0, totalQuestions: 0, totalTime: 0 };
+        const ms = modeStats[m.mode];
+        ms.count++;
+        ms.totalScore += m.score || 0;
+        ms.totalCorrect += m.correct || 0;
+        ms.totalQuestions += m.total || 0;
+        ms.totalTime += m.time_sec || 0;
+      });
+    });
+
+    const headers = [
+      { label: '모드' }, { label: '참여 횟수' }, { label: '평균 점수' },
+      { label: '평균 정답률' }, { label: '평균 소요시간(s)' }
+    ];
+
+    const rows = Object.entries(modeStats)
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([mode, ms]) => [
+        MODE_LABELS[mode] || mode,
+        ms.count,
+        Math.round(ms.totalScore / ms.count),
+        ms.totalQuestions ? Math.round(ms.totalCorrect / ms.totalQuestions * 100) + '%' : '-',
+        Math.round(ms.totalTime / ms.count)
+      ]);
+
+    if (rows.length === 0) {
+      const p = document.createElement('p');
+      p.style.cssText = 'color:#888;text-align:center;padding:40px;';
+      p.textContent = '아직 모드 데이터가 없습니다.';
+      container.appendChild(p);
+    } else {
+      container.appendChild(makeTable(headers, rows));
+    }
+  }
+
+  function renderTabDetail(container, sessions) {
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap;';
+
+    const label = document.createElement('label');
+    label.textContent = '세션 선택: ';
+    label.style.cssText = 'color:#e0e0ff;font-size:14px;';
+    const sel = document.createElement('select');
+    sel.style.cssText = 'padding:8px 12px;border-radius:8px;border:1px solid #3d3d5e;background:#0f0f23;color:#e0e0ff;font-size:13px;max-width:360px;';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '세션을 선택하세요...';
+    sel.appendChild(placeholder);
+
+    const reversed = sessions.slice().reverse();
+    reversed.forEach((s, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = (s.nickname || '익명') + ' — ' + fmt(s.started_at) + ' (' + (s.total_score || 0) + '점)';
+      sel.appendChild(opt);
+    });
+
+    if (selectedSession !== null) sel.value = selectedSession;
+
+    sel.addEventListener('change', () => {
+      selectedSession = sel.value === '' ? null : parseInt(sel.value);
+      renderTabDetail(container, sessions);
+    });
+
+    topRow.appendChild(label);
+    topRow.appendChild(sel);
+    container.appendChild(topRow);
+
+    if (selectedSession === null) {
+      const p = document.createElement('p');
+      p.style.cssText = 'color:#888;text-align:center;padding:40px;';
+      p.textContent = '위에서 세션을 선택하세요.';
+      container.appendChild(p);
+      return;
+    }
+
+    const s = reversed[selectedSession];
+    if (!s) return;
+
+    const info = document.createElement('div');
+    info.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;';
+    info.appendChild(statCard('닉네임', s.nickname || '-', '#60a5fa'));
+    info.appendChild(statCard('점수', s.total_score || 0, '#fbbf24'));
+    info.appendChild(statCard('기기', s.device || '-', '#34d399'));
+    info.appendChild(statCard('답변 수', (s.answers || []).length, '#f472b6'));
+    container.appendChild(info);
+
+    const answers = s.answers || [];
+    if (answers.length === 0) {
+      const p = document.createElement('p');
+      p.style.cssText = 'color:#888;text-align:center;padding:20px;';
+      p.textContent = '이 세션에 답변 데이터가 없습니다.';
+      container.appendChild(p);
+    } else {
+      const aHeaders = [
+        { label: '모드' }, { label: '문제 ID' }, { label: '선택 답반' },
+        { label: '정답 여부' }, { label: '소요 시간(s)' }, { label: '시간' }
+      ];
+      const aRows = answers.map(a => [
+        MODE_LABELS[a.mode] || a.mode || '-',
+        a.question_id || '-',
+        a.selected || '-',
+        { __html: a.correct ? '<span style="color:#34d399;font-weight:bold">✅ 정답</span>' : '<span style="color:#f87171;font-weight:bold">❌ 오답</span>' },
+        a.time_sec !== undefined ? a.time_sec : '-',
+        fmt(a.at)
+      ]);
+      container.appendChild(makeTable(aHeaders, aRows));
+    }
+  }
+
+  function exportCSV(sessions) {
+    if (!sessions.length) { alert('내보낼 데이터가 없습니다.'); return; }
+    const rows = [['nickname', 'started_at', 'ended_at', 'total_score', 'max_level', 'max_streak', 'device', 'modes_completed', 'num_answers']];
+    sessions.forEach(s => rows.push([
+      s.nickname || '',
+      s.started_at || '',
+      s.ended_at || '',
+      s.total_score || 0,
+      s.max_level || '',
+      s.max_streak || 0,
+      s.device || '',
+      (s.modes_completed || []).join('|'),
+      (s.answers || []).length
+    ]));
+    const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'disaster_med_sessions_' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  document.body.appendChild(overlay);
+  renderOverlay();
+}
+
 // ---- INTRO ----
 function renderIntro() {
   const deployUrl = window.location.href;
@@ -996,28 +1509,9 @@ function renderIntro() {
   });
   enterBtn.addEventListener('click', startGame);
 
-  // Admin dashboard link — open as overlay iframe to inherit port proxy
+  // Admin dashboard link — inline admin overlay
   $('admin-link-btn').addEventListener('click', () => {
-    // Create fullscreen overlay with iframe
-    let overlay = document.getElementById('admin-overlay');
-    if (overlay) { overlay.style.display = 'flex'; return; }
-    overlay = document.createElement('div');
-    overlay.id = 'admin-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;padding:10px;';
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕ 닫기';
-    closeBtn.style.cssText = 'align-self:flex-end;background:#e74c3c;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:14px;cursor:pointer;margin-bottom:8px;font-weight:bold;';
-    closeBtn.addEventListener('click', () => { overlay.style.display = 'none'; });
-    const iframe = document.createElement('iframe');
-    const base = window.location.href.replace(/\/[^/]*$/, '/');
-    iframe.src = base + 'admin.html';
-    iframe.style.cssText = 'flex:1;width:100%;max-width:1200px;border:none;border-radius:12px;background:#1a1a2e;';
-    iframe.addEventListener('load', () => {
-      iframe.contentWindow.postMessage({type: 'SET_API_URL', url: TRACKING_API}, '*');
-    });
-    overlay.appendChild(closeBtn);
-    overlay.appendChild(iframe);
-    document.body.appendChild(overlay);
+    renderInlineAdmin();
   });
 
   setTimeout(() => nickInput.focus(), 300);
