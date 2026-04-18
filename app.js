@@ -299,59 +299,74 @@ const STORY_ACTS = [
   }
 ];
 
-// ---- LOCAL DATA STORE ----
+// ---- LOCAL DATA STORE (in-memory primary, localStorage fallback) ----
 const LocalStore = {
   _key: 'disaster_med_sessions',
+  _sessions: null, // in-memory primary store
+  _currentSession: null, // in-memory current session
+
+  _init() {
+    if (this._sessions !== null) return;
+    // 1) Try loading from localStorage first
+    let stored = [];
+    try { stored = JSON.parse(localStorage.getItem(this._key) || '[]'); } catch(e) {}
+    // 2) Merge with seed data from global variable
+    const seed = window.__SEED_SESSIONS || [];
+    if (stored.length > 0) {
+      this._sessions = stored;
+    } else if (seed.length > 0) {
+      this._sessions = seed.slice(); // copy
+    } else {
+      this._sessions = [];
+    }
+    console.log('LocalStore initialized: ' + this._sessions.length + ' sessions');
+  },
 
   getSessions() {
-    try { return JSON.parse(localStorage.getItem(this._key) || '[]'); }
-    catch(e) { return []; }
+    this._init();
+    return this._sessions;
   },
 
   saveSession(session) {
-    const sessions = this.getSessions();
-    sessions.push(session);
-    // Keep last 500 sessions to avoid localStorage overflow
-    if (sessions.length > 500) sessions.splice(0, sessions.length - 500);
-    localStorage.setItem(this._key, JSON.stringify(sessions));
+    this._init();
+    this._sessions.push(session);
+    // Keep last 500 sessions
+    if (this._sessions.length > 500) this._sessions.splice(0, this._sessions.length - 500);
+    // Best-effort localStorage backup
+    try { localStorage.setItem(this._key, JSON.stringify(this._sessions)); } catch(e) {}
   },
 
   getCurrentSession() {
-    try { return JSON.parse(sessionStorage.getItem('current_session') || 'null'); }
-    catch(e) { return null; }
+    return this._currentSession;
   },
 
   updateCurrentSession(data) {
-    const current = this.getCurrentSession() || {
-      nickname: '', started_at: new Date().toISOString(),
-      modes: [], answers: [], device: 'unknown'
-    };
-    Object.assign(current, data);
-    sessionStorage.setItem('current_session', JSON.stringify(current));
+    if (!this._currentSession) {
+      this._currentSession = {
+        nickname: '', started_at: new Date().toISOString(),
+        modes: [], answers: [], device: 'unknown'
+      };
+    }
+    Object.assign(this._currentSession, data);
   },
 
   addAnswer(answer) {
-    const current = this.getCurrentSession();
-    if (!current) return;
-    if (!current.answers) current.answers = [];
-    current.answers.push(answer);
-    sessionStorage.setItem('current_session', JSON.stringify(current));
+    if (!this._currentSession) return;
+    if (!this._currentSession.answers) this._currentSession.answers = [];
+    this._currentSession.answers.push(answer);
   },
 
   addModeResult(result) {
-    const current = this.getCurrentSession();
-    if (!current) return;
-    if (!current.modes) current.modes = [];
-    current.modes.push(result);
-    sessionStorage.setItem('current_session', JSON.stringify(current));
+    if (!this._currentSession) return;
+    if (!this._currentSession.modes) this._currentSession.modes = [];
+    this._currentSession.modes.push(result);
   },
 
   finishSession(summary) {
-    const current = this.getCurrentSession();
-    if (!current) return;
-    Object.assign(current, summary, { ended_at: new Date().toISOString() });
-    this.saveSession(current);
-    sessionStorage.removeItem('current_session');
+    if (!this._currentSession) return;
+    Object.assign(this._currentSession, summary, { ended_at: new Date().toISOString() });
+    this.saveSession(this._currentSession);
+    this._currentSession = null;
   }
 };
 
