@@ -5107,7 +5107,7 @@ function showCTMBossResults() {
       G.screen = 'hseepMenu';
       G.hseepState = G.hseepState || {};
       G.hseepScenarioState = G.hseepScenarioState || {};
-      G.hseepTemplateState = G.hseepTemplateState || {};
+      G.hseep = G.hseep || {};
       G.hseepCampaignState = G.hseepCampaignState || { currentChapter: 1, questionIndex: 0, score: 0, chaptersCompleted: [] };
       Tracker.startMode('hseep');
       render();
@@ -6249,7 +6249,9 @@ function renderHSEEPMenu() {
     render();
   });
   document.getElementById('hseepBtnTemplate').addEventListener('click', function() {
-    G.hseepTemplateState = { phase: 'list', templateKey: null, sectionIndex: 0, answered: false };
+    G.hseep = G.hseep || {};
+    G.hseep.templateKey = null;
+    G.hseep.templateSectionIdx = 0;
     G.screen = 'hseepTemplate';
     render();
   });
@@ -6667,55 +6669,53 @@ function renderHSEEPScenario() {
 // ============================================
 function renderHSEEPTemplate() {
   var app = $('app');
-  var templates = HSEEP_TEMPLATES;
-  var state = G.hseepTemplateState;
-
+  var templates = window.HSEEP_TEMPLATES;
   if (!templates) {
-    app.innerHTML = '<div class="screen" style="padding:20px;text-align:center"><p style="color:#ef5350">템플릿 데이터를 불러올 수 없습니다.</p><button id="hseepTplBack" style="padding:10px 20px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b8fa3;border-radius:10px;cursor:pointer">← 메뉴로</button></div>';
-    document.getElementById('hseepTplBack').addEventListener('click', function() { G.screen='hseepMenu'; render(); });
+    app.innerHTML = '<div class="screen"><div style="padding:20px;text-align:center;color:#ef5350">HSEEP 템플릿 데이터를 불러올 수 없습니다.</div></div>';
     return;
   }
 
-  if (!state || state.phase === 'list') {
-    var tplMeta = {
-      sitman:  { icon: '📘', color: '#42a5f5' },
-      explan:  { icon: '📗', color: '#66bb6a' },
-      msel:    { icon: '📙', color: '#ffca28' },
-      eeg:     { icon: '📕', color: '#ef5350' },
-      aar_ip:  { icon: '📔', color: '#ab47bc' }
-    };
+  var h = G.hseep || {};
+  G.hseep = h;
 
-    var tplListHtml = Object.keys(templates).map(function(key) {
+  var TEMPLATE_KEYS = ['sitman', 'explan', 'msel', 'eeg', 'aar_ip'];
+  var TEMPLATE_LABELS = {
+    sitman: { icon: '📓', label: '상황 매뉴얼 (SitMan)', color: '#448aff' },
+    explan: { icon: '📑', label: '훈련 계획서 (ExPlan)', color: '#66bb6a' },
+    msel: { icon: '📋', label: 'MSEL (이벤트 마스터 목록)', color: '#ff9800' },
+    eeg: { icon: '📊', label: '훈련 평가 지침 (EEG)', color: '#ab47bc' },
+    aar_ip: { icon: '📈', label: '결과 보고서 (AAR/IP)', color: '#26a69a' }
+  };
+
+  // Phase: template list
+  if (!h.templateKey) {
+    var html = '<div class="screen"><div style="padding:16px">';
+    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">';
+    html += '<button id="hseepTplBack" style="padding:8px 14px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#8b8fa3;border-radius:8px;cursor:pointer;font-size:0.85rem">← 뒤로</button>';
+    html += '<h2 style="font-size:1.05rem;font-weight:700;flex:1">HSEEP 템플릿 빌더</h2></div>';
+    html += '<div style="display:flex;flex-direction:column;gap:10px">';
+    TEMPLATE_KEYS.forEach(function(key) {
       var tpl = templates[key];
-      var meta = tplMeta[key] || { icon: '📄', color: '#90a4ae' };
+      if (!tpl) return;
+      var info = TEMPLATE_LABELS[key] || { icon: '📄', label: key, color: '#8b8fa3' };
       var secCount = (tpl.sections || []).length;
-      return '<button class="hseep-tpl-btn" data-key="' + key + '" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px 16px;text-align:left;cursor:pointer;color:#e8eaf6;display:flex;align-items:flex-start;gap:14px;width:100%;margin-bottom:8px">' +
-        '<span style="font-size:1.8rem;flex-shrink:0">' + meta.icon + '</span>' +
-        '<div style="flex:1">' +
-          '<div style="font-weight:700;font-size:0.9rem;color:' + meta.color + ';margin-bottom:3px">' + tpl.name + '</div>' +
-          '<div style="font-size:0.75rem;color:#8b8fa3;margin-bottom:6px;line-height:1.4">' + tpl.description + '</div>' +
-          '<div style="font-size:0.7rem;color:#6b6f82">' + secCount + '개 섹션 · ' + (tpl.usedFor || []).join(', ') + '</div>' +
-        '</div>' +
-        '</button>';
-    }).join('');
+      html += '<button class="hseep-tpl-item" data-tpl="' + key + '" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;cursor:pointer;width:100%;text-align:left">';
+      html += '<div style="font-size:1.6rem;flex-shrink:0">' + info.icon + '</div>';
+      html += '<div><div style="font-weight:700;font-size:0.9rem;color:' + info.color + '">' + info.label + '</div>';
+      html += '<div style="font-size:0.75rem;color:#8b8fa3;margin-top:3px">' + (tpl.description || '').substring(0, 90) + '...</div>';
+      html += '<div style="font-size:0.73rem;color:#6b6f82;margin-top:4px">' + secCount + '개 섹션 · ' + (Array.isArray(tpl.usedFor) ? tpl.usedFor.join(', ') : '') + '</div>';
+      html += '</div></button>';
+    });
+    html += '</div></div></div>';
+    app.innerHTML = html;
 
-    app.innerHTML = `
-      <div class="screen" style="padding:20px;max-width:480px;margin:0 auto">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-          <button id="hseepTplBack" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:#8b8fa3;cursor:pointer">←</button>
-          <div>
-            <div style="font-size:1rem;font-weight:700;color:#e8eaf6">📄 템플릿 빌더</div>
-            <div style="font-size:0.75rem;color:#8b8fa3">HSEEP 공식 문서 작성법 마스터</div>
-          </div>
-        </div>
-        <div>${tplListHtml}</div>
-      </div>`;
-
-    document.getElementById('hseepTplBack').addEventListener('click', function() { G.screen='hseepMenu'; render(); });
-    document.querySelectorAll('.hseep-tpl-btn').forEach(function(btn) {
+    document.getElementById('hseepTplBack').addEventListener('click', function() {
+      G.screen = 'hseepMenu'; render();
+    });
+    document.querySelectorAll('.hseep-tpl-item').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        var key = btn.getAttribute('data-key');
-        G.hseepTemplateState = { phase: 'section', templateKey: key, sectionIndex: 0, answered: false, selected: -1, built: [] };
+        h.templateKey = btn.getAttribute('data-tpl');
+        h.templateSectionIdx = 0;
         Tracker.startMode('hseep_template');
         render();
       });
@@ -6723,180 +6723,304 @@ function renderHSEEPTemplate() {
     return;
   }
 
-  if (state.phase === 'section') {
-    var tpl = templates[state.templateKey];
-    if (!tpl) { G.hseepTemplateState = { phase: 'list' }; render(); return; }
-    var sections = tpl.sections || [];
+  // Phase: section-by-section
+  var tpl = templates[h.templateKey];
+  if (!tpl) { h.templateKey = null; render(); return; }
+  var sections = tpl.sections || [];
+  var info = TEMPLATE_LABELS[h.templateKey] || { icon: '📄', label: h.templateKey, color: '#8b8fa3' };
 
-    if (state.sectionIndex >= sections.length) {
-      // Template complete
-      var builtHtml2 = (state.built || []).map(function(item) {
-        return '<div style="background:rgba(33,150,243,0.08);border-left:3px solid #1565c0;padding:8px 12px;margin-bottom:8px;border-radius:0 8px 8px 0;font-size:0.78rem;color:#90caf9;line-height:1.5">' + item + '</div>';
-      }).join('');
+  if (h.templateSectionIdx >= sections.length) {
+    // Template complete
+    renderHSEEPTemplateResult(tpl, info);
+    return;
+  }
 
-      app.innerHTML = `
-        <div class="screen" style="padding:20px;max-width:480px;margin:0 auto">
-          <div style="text-align:center;margin-bottom:20px">
-            <div style="font-size:2.5rem;margin-bottom:8px">📄</div>
-            <div style="font-size:1.1rem;font-weight:700;color:#e8eaf6;margin-bottom:4px">${tpl.name} 완성!</div>
-            <div style="font-size:0.82rem;color:#8b8fa3">💡 ${tpl.tipText || ''}</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:16px;margin-bottom:16px">
-            <div style="font-size:0.8rem;font-weight:600;color:#8b8fa3;margin-bottom:10px">작성된 템플릿</div>
-            ${builtHtml2}
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <button id="hseepTplRetry" style="padding:13px;background:linear-gradient(135deg,rgba(156,39,176,0.3),rgba(156,39,176,0.2));border:1px solid rgba(156,39,176,0.4);color:#ce93d8;border-radius:12px;cursor:pointer;font-weight:600">🔄 다시 작성</button>
-            <button id="hseepTplOther" style="padding:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b8fa3;border-radius:12px;cursor:pointer">다른 템플릿</button>
-            <button id="hseepTplMenu" style="padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#6b6f82;border-radius:12px;cursor:pointer">← HSEEP 메뉴</button>
-          </div>
-        </div>`;
+  var section = sections[h.templateSectionIdx];
+  var secNum = h.templateSectionIdx + 1;
+  var totalSec = sections.length;
+  var pct = Math.round(((secNum - 1) / totalSec) * 100);
 
-      G.score = (G.score || 0) + (sections.length * 15);
-      Tracker.endMode(sections.length);
-      document.getElementById('hseepTplRetry').addEventListener('click', function() {
-        G.hseepTemplateState = { phase: 'section', templateKey: state.templateKey, sectionIndex: 0, answered: false, selected: -1, built: [] };
-        render();
-      });
-      document.getElementById('hseepTplOther').addEventListener('click', function() {
-        G.hseepTemplateState = { phase: 'list' }; render();
-      });
-      document.getElementById('hseepTplMenu').addEventListener('click', function() {
-        G.screen = 'hseepMenu'; render();
-      });
-      return;
-    }
+  // Build section content HTML
+  var secContentHtml = '';
 
-    var sec = sections[state.sectionIndex];
-    var secNum = state.sectionIndex + 1;
-    var progressPct2 = Math.round((secNum / sections.length) * 100);
-
-    // Built so far
-    var builtSoFar = (state.built || []).map(function(item, i) {
-      return '<div style="border-left:3px solid #1565c0;padding:4px 10px;margin-bottom:4px;font-size:0.75rem;color:#90caf9;opacity:0.8">' + item + '</div>';
-    }).join('');
-
-    if (sec.type === 'info') {
-      // Just info + example
-      app.innerHTML = `
-        <div class="screen" style="padding:20px;max-width:480px;margin:0 auto">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <button id="hseepTplExit" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;color:#8b8fa3;cursor:pointer;font-size:0.8rem">✕</button>
-            <span style="font-size:0.8rem;color:#8b8fa3">${secNum} / ${sections.length}</span>
-          </div>
-          <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;margin-bottom:16px;overflow:hidden">
-            <div style="background:linear-gradient(90deg,#6a1b9a,#ab47bc);height:100%;width:${progressPct2}%;transition:width 0.3s"></div>
-          </div>
-          <div style="margin-bottom:12px">
-            <div style="font-size:0.75rem;font-weight:700;color:#ab47bc;margin-bottom:6px">${sec.label || ''}</div>
-            <div style="background:rgba(156,39,176,0.08);border:1px solid rgba(156,39,176,0.25);border-radius:10px;padding:14px;font-size:0.85rem;color:#e8eaf6;line-height:1.7">${sec.content || ''}</div>
-          </div>
-          ${sec.templateExample ? `
-          <div style="background:rgba(33,150,243,0.06);border:1px solid rgba(33,150,243,0.2);border-radius:10px;padding:12px;font-size:0.78rem;color:#90caf9;line-height:1.6;white-space:pre-line;margin-bottom:16px">📝 예시:<br>${sec.templateExample}</div>` : ''}
-          <button id="hseepTplNext" style="width:100%;padding:13px;background:linear-gradient(135deg,rgba(156,39,176,0.3),rgba(156,39,176,0.2));border:1px solid rgba(156,39,176,0.4);color:#ce93d8;border-radius:12px;cursor:pointer;font-weight:600">
-            ${secNum >= sections.length ? '완성! ✓' : '다음 섹션 →'}
-          </button>
-        </div>`;
-
-      document.getElementById('hseepTplExit').addEventListener('click', function() {
-        G.hseepTemplateState = { phase: 'list' }; render();
-      });
-      document.getElementById('hseepTplNext').addEventListener('click', function() {
-        if (sec.templateExample) {
-          state.built = state.built || [];
-          state.built.push(sec.label + ': ' + (sec.templateExample || '').substring(0, 80) + '...');
-        }
-        state.sectionIndex++;
-        state.answered = false;
-        state.selected = -1;
-        render();
-      });
-      return;
-    }
-
-    // Quiz section
-    var secOptsHtml = (sec.options || []).map(function(opt, i) {
-      var letter = String.fromCharCode(65 + i);
-      var style = 'background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);';
-      if (state.answered) {
-        if (i === sec.correct) {
-          style = 'background:rgba(76,175,80,0.2);border:1px solid rgba(76,175,80,0.5);';
-        } else if (i === state.selected && i !== sec.correct) {
-          style = 'background:rgba(244,67,54,0.2);border:1px solid rgba(244,67,54,0.5);';
-        }
+  if (section.fields && Array.isArray(section.fields)) {
+    section.fields.forEach(function(f) {
+      if (typeof f === 'string') {
+        secContentHtml += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;color:#8b8fa3">' + f + '</div>';
+      } else {
+        secContentHtml += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">';
+        secContentHtml += '<div style="font-size:0.8rem;font-weight:600;color:#b0b8d0">' + (f.field || '') + '</div>';
+        if (f.example) secContentHtml += '<div style="font-size:0.78rem;color:#66bb6a;margin-top:2px">예시: ' + f.example + '</div>';
+        if (f.tip) secContentHtml += '<div style="font-size:0.75rem;color:#8b8fa3;font-style:italic;margin-top:2px">💡 ' + f.tip + '</div>';
+        secContentHtml += '</div>';
       }
-      return '<button class="hseep-tpl-opt" data-idx="' + i + '" ' + (state.answered ? 'disabled' : '') +
-        ' style="width:100%;' + style + 'border-radius:10px;padding:12px 14px;text-align:left;cursor:' + (state.answered ? 'default' : 'pointer') + ';color:#e8eaf6;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start">' +
-        '<span style="background:rgba(255,255,255,0.1);border-radius:6px;padding:2px 7px;font-size:0.8rem;font-weight:700;flex-shrink:0">' + letter + '</span>' +
-        '<span style="font-size:0.88rem;line-height:1.5">' + opt + '</span>' +
-        '</button>';
-    }).join('');
-
-    var tplExpHtml = state.answered ? `
-      <div style="background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:10px;padding:12px;margin-top:10px;font-size:0.82rem;color:#a5d6a7;line-height:1.6">
-        💡 ${sec.feedback || ''}
-      </div>
-      ${sec.templateExample ? `<div style="background:rgba(33,150,243,0.06);border:1px solid rgba(33,150,243,0.2);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:0.76rem;color:#90caf9;line-height:1.5;white-space:pre-line">📝 템플릿 예시:<br>${sec.templateExample}</div>` : ''}
-      <button id="hseepTplNext" style="width:100%;margin-top:12px;padding:13px;background:linear-gradient(135deg,rgba(156,39,176,0.3),rgba(156,39,176,0.2));border:1px solid rgba(156,39,176,0.4);color:#ce93d8;border-radius:12px;cursor:pointer;font-weight:600">
-        ${secNum >= sections.length ? '완성! ✓' : '다음 섹션 →'}
-      </button>` : '';
-
-    app.innerHTML = `
-      <div class="screen" style="padding:20px;max-width:480px;margin:0 auto">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <button id="hseepTplExit" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;color:#8b8fa3;cursor:pointer;font-size:0.8rem">✕</button>
-          <span style="font-size:0.8rem;color:#8b8fa3">${secNum} / ${sections.length}</span>
-        </div>
-        <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;margin-bottom:16px;overflow:hidden">
-          <div style="background:linear-gradient(90deg,#6a1b9a,#ab47bc);height:100%;width:${progressPct2}%;transition:width 0.3s"></div>
-        </div>
-        <div style="background:rgba(255,255,255,0.04);border-radius:12px;padding:14px;margin-bottom:12px">
-          <div style="font-size:0.75rem;font-weight:700;color:#ab47bc;margin-bottom:6px">${sec.label || ''}</div>
-          <div style="font-size:0.9rem;color:#e8eaf6;line-height:1.6;font-weight:600">${sec.question || ''}</div>
-        </div>
-        ${builtSoFar ? `<div style="background:rgba(21,101,192,0.08);border:1px solid rgba(21,101,192,0.2);border-radius:10px;padding:10px 12px;margin-bottom:12px"><div style="font-size:0.7rem;color:#42a5f5;margin-bottom:6px">📋 작성 중인 ${tpl.name}</div>${builtSoFar}</div>` : ''}
-        <div>${secOptsHtml}</div>
-        ${tplExpHtml}
-      </div>`;
-
-    document.getElementById('hseepTplExit').addEventListener('click', function() {
-      G.hseepTemplateState = { phase: 'list' }; render();
     });
+  }
 
-    if (!state.answered) {
-      document.querySelectorAll('.hseep-tpl-opt').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          if (state.answered) return;
-          var idx = parseInt(btn.getAttribute('data-idx'));
-          state.selected = idx;
-          state.answered = true;
-          if (idx === sec.correct) {
-            try { sfx('correct'); } catch(e) {}
-          } else {
-            try { sfx('wrong'); } catch(e) {}
+  if (section.subsections && Array.isArray(section.subsections)) {
+    section.subsections.forEach(function(sub) {
+      secContentHtml += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">';
+      secContentHtml += '<div style="font-size:0.82rem;font-weight:600;color:#b0b8d0">' + (sub.title || '') + '</div>';
+      secContentHtml += '<div style="font-size:0.78rem;color:#8b8fa3;margin-top:2px;line-height:1.5">' + (sub.content || '') + '</div>';
+      if (sub.roles && Array.isArray(sub.roles)) {
+        sub.roles.forEach(function(r) {
+          if (typeof r === 'object') {
+            secContentHtml += '<div style="margin-top:4px;padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:0.76rem"><strong style="color:#b0b8d0">' + r.role + '</strong><span style="color:#8b8fa3"> — ' + r.description + '</span></div>';
           }
-          render();
         });
+      }
+      if (sub.rules && Array.isArray(sub.rules)) {
+        sub.rules.forEach(function(rule) {
+          secContentHtml += '<div style="margin-top:3px;font-size:0.76rem;color:#8b8fa3;padding-left:8px;border-left:2px solid rgba(255,255,255,0.1)">• ' + rule + '</div>';
+        });
+      }
+      secContentHtml += '</div>';
+    });
+  }
+
+  if (section.structure && typeof section.structure === 'string') {
+    secContentHtml += '<div style="font-size:0.82rem;color:#8b8fa3;padding:6px 0;line-height:1.6">' + section.structure + '</div>';
+  } else if (section.structure && typeof section.structure === 'object') {
+    var st = section.structure;
+    if (st.scenarioNarrative) secContentHtml += '<div style="font-size:0.8rem;color:#8b8fa3;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);line-height:1.5"><strong style="color:#b0b8d0">시나리오 내러티브:</strong> ' + st.scenarioNarrative + '</div>';
+    if (st.keyIssues) secContentHtml += '<div style="font-size:0.8rem;color:#8b8fa3;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);line-height:1.5"><strong style="color:#b0b8d0">핵심 이슈:</strong> ' + st.keyIssues + '</div>';
+    if (st.discussionQuestions) secContentHtml += '<div style="font-size:0.8rem;color:#8b8fa3;padding:6px 0;line-height:1.5"><strong style="color:#b0b8d0">토론 질문:</strong> ' + st.discussionQuestions + '</div>';
+    if (st.observationFormat) {
+      var obs = st.observationFormat;
+      if (obs.strengthObservation) {
+        secContentHtml += '<div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);border-radius:8px;padding:10px;margin-top:8px">';
+        secContentHtml += '<div style="font-size:0.82rem;font-weight:700;color:#66bb6a;margin-bottom:6px">✅ 강점 관찰 예시: ' + obs.strengthObservation.title + '</div>';
+        secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5"><strong>참조:</strong> ' + obs.strengthObservation.reference + '</div>';
+        secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5;margin-top:4px"><strong>분석:</strong> ' + obs.strengthObservation.analysis + '</div>';
+        secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5;margin-top:4px"><strong>권고:</strong> ' + obs.strengthObservation.recommendation + '</div>';
+        secContentHtml += '</div>';
+      }
+      if (obs.improvementObservation) {
+        secContentHtml += '<div style="background:rgba(255,82,82,0.08);border:1px solid rgba(255,82,82,0.2);border-radius:8px;padding:10px;margin-top:8px">';
+        secContentHtml += '<div style="font-size:0.82rem;font-weight:700;color:#ff5252;margin-bottom:6px">⚠️ 개선 관찰 예시: ' + obs.improvementObservation.title + '</div>';
+        secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5"><strong>참조:</strong> ' + obs.improvementObservation.reference + '</div>';
+        secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5;margin-top:4px"><strong>분석:</strong> ' + obs.improvementObservation.analysis + '</div>';
+        secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5;margin-top:4px"><strong>권고:</strong> ' + obs.improvementObservation.recommendation + '</div>';
+        secContentHtml += '</div>';
+      }
+    }
+    if (st.exampleModule) {
+      var mod = st.exampleModule;
+      secContentHtml += '<div style="background:rgba(68,138,255,0.08);border:1px solid rgba(68,138,255,0.2);border-radius:8px;padding:10px;margin-top:10px">';
+      secContentHtml += '<div style="font-size:0.82rem;font-weight:700;color:#448aff;margin-bottom:6px">📖 예시: ' + mod.title + '</div>';
+      secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5">' + mod.narrative + '</div>';
+      if (mod.keyIssues) {
+        secContentHtml += '<div style="margin-top:6px;font-size:0.76rem;color:#ffb74d;font-weight:600">핵심 이슈:</div>';
+        mod.keyIssues.forEach(function(iss) {
+          secContentHtml += '<div style="font-size:0.74rem;color:#8b8fa3;padding-left:8px">• ' + iss + '</div>';
+        });
+      }
+      if (mod.discussionQuestions) {
+        secContentHtml += '<div style="margin-top:6px;font-size:0.76rem;color:#448aff;font-weight:600">토론 질문:</div>';
+        mod.discussionQuestions.forEach(function(dq) {
+          secContentHtml += '<div style="font-size:0.74rem;color:#8b8fa3;padding-left:8px">• ' + dq + '</div>';
+        });
+      }
+      secContentHtml += '</div>';
+    }
+  }
+
+  if (section.content && !section.fields && !section.subsections) {
+    secContentHtml += '<div style="font-size:0.82rem;color:#8b8fa3;padding:6px 0;line-height:1.6">' + section.content + '</div>';
+  }
+
+  // Handle observationFormat at section level (AAR/IP capability analysis)
+  if (section.observationFormat) {
+    var obs = section.observationFormat;
+    if (obs.strengthObservation) {
+      secContentHtml += '<div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);border-radius:8px;padding:10px;margin-top:8px">';
+      secContentHtml += '<div style="font-size:0.82rem;font-weight:700;color:#66bb6a;margin-bottom:6px">✅ 강점 관찰 예시: ' + obs.strengthObservation.title + '</div>';
+      secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5"><strong>참조:</strong> ' + obs.strengthObservation.reference + '</div>';
+      secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5;margin-top:4px"><strong>분석:</strong> ' + obs.strengthObservation.analysis + '</div>';
+      secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5;margin-top:4px"><strong>권고:</strong> ' + obs.strengthObservation.recommendation + '</div>';
+      secContentHtml += '</div>';
+    }
+    if (obs.improvementObservation) {
+      secContentHtml += '<div style="background:rgba(255,82,82,0.08);border:1px solid rgba(255,82,82,0.2);border-radius:8px;padding:10px;margin-top:8px">';
+      secContentHtml += '<div style="font-size:0.82rem;font-weight:700;color:#ff5252;margin-bottom:6px">⚠️ 개선 관찰 예시: ' + obs.improvementObservation.title + '</div>';
+      secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5"><strong>참조:</strong> ' + obs.improvementObservation.reference + '</div>';
+      secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5;margin-top:4px"><strong>분석:</strong> ' + obs.improvementObservation.analysis + '</div>';
+      secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;line-height:1.5;margin-top:4px"><strong>권고:</strong> ' + obs.improvementObservation.recommendation + '</div>';
+      secContentHtml += '</div>';
+    }
+  }
+
+  if (section.appendices && Array.isArray(section.appendices)) {
+    section.appendices.forEach(function(ap) {
+      if (typeof ap === 'string') {
+        secContentHtml += '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.8rem;color:#8b8fa3">📎 ' + ap + '</div>';
+      } else {
+        secContentHtml += '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)">';
+        secContentHtml += '<div style="font-size:0.8rem;font-weight:600;color:#b0b8d0">📎 ' + (ap.name || '') + '</div>';
+        if (ap.content) secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;margin-top:2px">' + ap.content + '</div>';
+        secContentHtml += '</div>';
+      }
+    });
+  }
+
+  if (section.example && !section.fields) {
+    if (Array.isArray(section.example)) {
+      secContentHtml += '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;margin-top:8px">';
+      secContentHtml += '<div style="font-size:0.78rem;font-weight:600;color:#ffb74d;margin-bottom:6px">예시:</div>';
+      section.example.forEach(function(ex) {
+        secContentHtml += '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.76rem;color:#8b8fa3">';
+        secContentHtml += '<strong>목표 ' + (ex.obj || '') + ':</strong> ' + (ex.statement || '') + ' → <span style="color:#66bb6a">' + (ex.capability || '') + '</span></div>';
       });
-    } else {
-      var tplNextBtn = document.getElementById('hseepTplNext');
-      if (tplNextBtn) {
-        tplNextBtn.addEventListener('click', function() {
-          if (sec.templateExample) {
-            state.built = state.built || [];
-            state.built.push(sec.label + ': ' + (sec.templateExample || '').substring(0, 80) + '...');
-          }
-          state.sectionIndex++;
-          state.answered = false;
-          state.selected = -1;
-          render();
+      secContentHtml += '</div>';
+    } else if (typeof section.example === 'string') {
+      secContentHtml += '<div style="background:rgba(102,187,106,0.08);border:1px solid rgba(102,187,106,0.2);border-radius:8px;padding:10px;margin-top:8px;font-size:0.78rem;color:#a5d6a7;line-height:1.5">📝 예시: ' + section.example + '</div>';
+    } else if (typeof section.example === 'object') {
+      if (section.example.strengths) {
+        secContentHtml += '<div style="background:rgba(76,175,80,0.08);border:1px solid rgba(76,175,80,0.2);border-radius:8px;padding:10px;margin-top:8px">';
+        secContentHtml += '<div style="font-size:0.78rem;font-weight:600;color:#66bb6a;margin-bottom:4px">강점 예시:</div>';
+        section.example.strengths.forEach(function(s) {
+          secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;margin-bottom:3px">✅ ' + s + '</div>';
         });
+        secContentHtml += '</div>';
+      }
+      if (section.example.areasForImprovement) {
+        secContentHtml += '<div style="background:rgba(255,82,82,0.08);border:1px solid rgba(255,82,82,0.2);border-radius:8px;padding:10px;margin-top:8px">';
+        secContentHtml += '<div style="font-size:0.78rem;font-weight:600;color:#ff5252;margin-bottom:4px">개선 필요 영역 예시:</div>';
+        section.example.areasForImprovement.forEach(function(a) {
+          secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;margin-bottom:3px">⚠️ ' + a + '</div>';
+        });
+        secContentHtml += '</div>';
       }
     }
   }
+
+  if (section.required && Array.isArray(section.required)) {
+    secContentHtml += '<div style="margin-top:8px;background:rgba(68,138,255,0.08);border:1px solid rgba(68,138,255,0.2);border-radius:8px;padding:10px">';
+    secContentHtml += '<div style="font-size:0.78rem;font-weight:600;color:#448aff;margin-bottom:4px">필수 포함 사항:</div>';
+    section.required.forEach(function(r) {
+      secContentHtml += '<div style="font-size:0.76rem;color:#8b8fa3;margin-bottom:2px">• ' + r + '</div>';
+    });
+    secContentHtml += '</div>';
+  }
+
+  if (section.capabilityTargetFormat) {
+    secContentHtml += '<div style="background:rgba(171,71,188,0.08);border:1px solid rgba(171,71,188,0.2);border-radius:8px;padding:10px;margin-top:8px">';
+    secContentHtml += '<div style="font-size:0.78rem;font-weight:600;color:#ab47bc;margin-bottom:4px">역량 목표 형식:</div>';
+    secContentHtml += '<div style="font-size:0.8rem;color:#e8eaf6;font-style:italic">' + section.capabilityTargetFormat + '</div>';
+    if (section.example && section.example.capabilityTarget) {
+      secContentHtml += '<div style="margin-top:6px;font-size:0.76rem;color:#66bb6a"><strong>예시:</strong> ' + section.example.capabilityTarget + '</div>';
+      if (section.example.criticalTasks) {
+        secContentHtml += '<div style="margin-top:4px;font-size:0.76rem;color:#ffb74d;font-weight:600">핵심 과업:</div>';
+        section.example.criticalTasks.forEach(function(ct) {
+          secContentHtml += '<div style="font-size:0.74rem;color:#8b8fa3;padding-left:8px">• ' + ct + '</div>';
+        });
+      }
+      if (section.example.sourceDocuments) {
+        secContentHtml += '<div style="margin-top:4px;font-size:0.74rem;color:#6b6f82">📄 출처: ' + section.example.sourceDocuments.join('; ') + '</div>';
+      }
+    }
+    secContentHtml += '</div>';
+  }
+
+  if (section.prompts && Array.isArray(section.prompts)) {
+    secContentHtml += '<div style="margin-top:8px">';
+    section.prompts.forEach(function(p) {
+      secContentHtml += '<div style="padding:6px 10px;margin-bottom:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;font-size:0.78rem;color:#b0b8d0">✏️ ' + p + '</div>';
+    });
+    secContentHtml += '</div>';
+  }
+
+  if (section.roles && Array.isArray(section.roles) && !section.subsections) {
+    secContentHtml += '<div style="margin-top:6px">';
+    section.roles.forEach(function(r) {
+      secContentHtml += '<div style="padding:4px 0;font-size:0.78rem;color:#8b8fa3">• ' + (typeof r === 'string' ? r : r.role) + '</div>';
+    });
+    secContentHtml += '</div>';
+  }
+
+  // Purpose header
+  if (section.purpose) {
+    secContentHtml = '<div style="font-size:0.8rem;color:#448aff;margin-bottom:8px;font-style:italic">' + section.purpose + '</div>' + secContentHtml;
+  }
+
+  // Key fact on first section
+  if (tpl.keyFact && secNum === 1) {
+    secContentHtml += '<div style="background:rgba(255,183,77,0.1);border:1px solid rgba(255,183,77,0.25);border-radius:8px;padding:10px;margin-top:10px;font-size:0.78rem;color:#ffb74d">💡 핵심 포인트: ' + tpl.keyFact + '</div>';
+  }
+
+  app.innerHTML = `
+    <div class="screen">
+      <div style="padding:12px 16px 0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <button id="hseepTplAbort" style="padding:6px 12px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:#8b8fa3;border-radius:8px;cursor:pointer;font-size:0.8rem">✕ 종료</button>
+          <div style="flex:1;background:rgba(255,255,255,0.08);border-radius:6px;height:6px;overflow:hidden">
+            <div style="height:100%;background:linear-gradient(90deg,${info.color},rgba(255,255,255,0.4));width:${pct}%;transition:width 0.3s"></div>
+          </div>
+          <div style="font-size:0.8rem;color:#8b8fa3">섹션 ${secNum}/${totalSec}</div>
+        </div>
+        <div style="font-size:0.85rem;color:${info.color};font-weight:700;margin-bottom:4px">${info.icon} ${info.label}</div>
+      </div>
+      <div style="margin:0 12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;max-height:calc(100vh - 140px);overflow-y:auto">
+        <div style="font-size:1rem;font-weight:700;margin-bottom:10px">섹션 ${section.sectionNumber || secNum}: ${section.title || ''}</div>
+        <div id="hseepTplContent">${secContentHtml}</div>
+        <button id="hseepTplNext" style="margin-top:14px;width:100%;padding:13px;background:linear-gradient(135deg,rgba(156,39,176,0.3),rgba(156,39,176,0.2));border:1px solid rgba(156,39,176,0.4);color:#ce93d8;border-radius:12px;cursor:pointer;font-weight:600;font-size:0.9rem">${secNum >= totalSec ? '템플릿 완성 ✓' : '다음 섹션 →'}</button>
+      </div>
+    </div>`;
+
+  document.getElementById('hseepTplAbort').addEventListener('click', function() {
+    h.templateKey = null; G.screen = 'hseepTemplate'; render();
+  });
+  document.getElementById('hseepTplNext').addEventListener('click', function() {
+    h.templateSectionIdx++;
+    G.score = (G.score || 0) + 30;
+    G.xp = (G.xp || 0) + 15;
+    render();
+  });
 }
 
 // ============================================
+// renderHSEEPTemplateResult — 템플릿 완성 화면
+// ============================================
+function renderHSEEPTemplateResult(tpl, info) {
+  var app = $('app');
+  var h = G.hseep || {};
+  G.modesCompleted = G.modesCompleted || new Set();
+  G.modesCompleted.add('hseep_template');
+  Tracker.endMode(1);
+  try { checkAchievements(); } catch(e) {}
+  try { confetti(); } catch(e) {}
+
+  var mistakesHtml = '';
+  if (tpl && tpl.commonMistakes) {
+    mistakesHtml = '<div style="background:rgba(255,50,50,0.07);border:1px solid rgba(255,50,50,0.2);border-radius:12px;padding:14px;margin:12px 0;text-align:left">';
+    mistakesHtml += '<div style="font-size:0.85rem;font-weight:700;margin-bottom:8px;color:#ff5252">⚠️ 흔한 실수 — 반드시 피하세요</div>';
+    tpl.commonMistakes.forEach(function(m) {
+      mistakesHtml += '<div style="font-size:0.78rem;color:#8b8fa3;margin-bottom:5px;line-height:1.4">• ' + m + '</div>';
+    });
+    mistakesHtml += '</div>';
+  }
+
+  app.innerHTML = `
+    <div class="screen" style="padding:20px;max-width:480px;margin:0 auto;text-align:center">
+      ${typeof charBubble === 'function' ? charBubble('mentor', (tpl.abbreviation || '') + ' 템플릿 구조를 완벽히 마스터했습니다! 이제 실제 훈련에 적용해 보세요!', { success: true }) : ''}
+      <div style="font-size:3rem;margin:16px 0 8px" class="anim-in">${(info || {}).icon || '📄'}</div>
+      <div style="font-size:1.1rem;font-weight:700;color:#e8eaf6;margin-bottom:4px">${(info || {}).label || '템플릿'}</div>
+      <div style="font-size:0.85rem;color:#8b8fa3;margin-bottom:16px">학습 완료 ✓</div>
+      ${mistakesHtml}
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px" id="hseepTplResultBtns">
+        <button id="hseepTplAnother" style="padding:13px;background:linear-gradient(135deg,rgba(156,39,176,0.3),rgba(156,39,176,0.2));border:1px solid rgba(156,39,176,0.4);color:#ce93d8;border-radius:12px;cursor:pointer;font-weight:600">📄 다른 템플릿 선택</button>
+        <button id="hseepTplMenu" style="padding:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#8b8fa3;border-radius:12px;cursor:pointer">📋 HSEEP 메뉴</button>
+        <button id="hseepTplModes" style="padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#6b6f82;border-radius:12px;cursor:pointer">🏠 미션 선택</button>
+      </div>
+    </div>`;
+
+  document.getElementById('hseepTplAnother').addEventListener('click', function() {
+    h.templateKey = null; h.templateSectionIdx = 0;
+    G.screen = 'hseepTemplate'; render();
+  });
+  document.getElementById('hseepTplMenu').addEventListener('click', function() { G.screen = 'hseepMenu'; render(); });
+  document.getElementById('hseepTplModes').addEventListener('click', function() { G.screen = 'modes'; render(); });
+}
 // STEP 4E: renderHSEEPCampaignMap()
 // ============================================
 function renderHSEEPCampaignMap() {
