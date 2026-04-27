@@ -119,9 +119,9 @@
     {
       id: 'triage',
       type: 'choice',
-      title: '2. MASS/START 분류 결정',
-      situation: '환자 A: HCN 노출, 호흡곤란·의식저하, 보행 불가, 시안화물 흡입 의심.',
-      question: '이 환자에 대한 분류는?',
+      title: '2. MASS/START 분류 결정 — Field Triage Officer',
+      situation: '환자 A: 호흡곤란, 의식 저하 (GCS 12), 보행 불가, 청색증 동반. 핫존 인근에서 의식 변화 발생.',
+      question: 'START/MASS 분류 결과는?',
       correctOptionId: 'red_immediate',
       options: [
         { id: 'red_immediate', text: 'Red / Immediate (즉시)', isCorrect: true,
@@ -138,27 +138,27 @@
     {
       id: 'predecon',
       type: 'choice',
-      title: '3. 사전(우선) 제독 우선순위',
-      situation: '핫존에서 끌려 나온 위중 환자. 제독 줄은 길고, 바로 응급처치가 필요한 상황.',
-      question: '가장 적절한 우선순위는?',
+      title: '3. 사전(우선) 제독 우선순위 — On-Scene Commander',
+      situation: '핫존에서 끌어낸 환자: 호흡곤란 악화, SpO₂ 82%, 의식 저하. 제독 줄에 환자 12명 대기.',
+      question: '제독·응급처치 순서로 가장 적절한 결정은?',
       correctOptionId: 'priority_0',
       options: [
-        { id: 'priority_0', text: '우선순위 0 — 즉시 응급처치 후 제독', isCorrect: true,
-          feedback: '정답. 생명 위협이 있을 때는 루틴 wet decon보다 즉시 응급처치(기도·해독제)가 우선. 제독은 응급처치 직후에 이어서 수행.' },
-        { id: 'wet_decon_first', text: '루틴 wet decon 먼저, 처치는 후', isCorrect: false,
-          feedback: '오답. 생명 위협 환자에게 루틴 wet decon을 먼저 하면 사망 위험 증가.' },
-        { id: 'dry_decon_first', text: '루틴 dry decon 먼저, 처치는 후', isCorrect: false,
-          feedback: '오답. dry decon도 즉각 생명 구조 처치보다 선행돼서는 안 된다.' },
-        { id: 'retriage_after_decon', text: '제독 완료 후 재분류 시행', isCorrect: false,
-          feedback: '오답. 제독 지연으로 응급처치가 늦어져 사망 위험.' }
+        { id: 'priority_0', text: '우선순위 0 — 즉시 기도·해독제 처치 후 제독', isCorrect: true,
+          feedback: '정답. 생명 위협이 있을 때는 루틴 wet decon보다 즉시 응급처치(기도·해독제)가 우선. 제독은 응급처치 직후에 이어서 수행하며, 이는 사전(우선) 제독 원칙과 일치한다.' },
+        { id: 'wet_decon_first', text: '루틴 wet decon 줄로 보낸 후 처치', isCorrect: false,
+          feedback: '오답. 생명 위협 환자에게 루틴 wet decon을 먼저 하면 응급처치 지연으로 사망 위험 증가. 사전 응급처치 후 제독이 원칙.' },
+        { id: 'dry_decon_first', text: '루틴 dry decon 줄로 보낸 후 처치', isCorrect: false,
+          feedback: '오답. dry decon도 즉각적인 생명 구조 처치보다 선행돼서는 안 된다. 응급처치가 항상 우선이다.' },
+        { id: 'retriage_after_decon', text: '전체 제독 완료 후 일괄 재분류 진행', isCorrect: false,
+          feedback: '오답. 제독 줄에서 대기하는 동안 응급처치가 지연되어 위중 환자가 사망할 위험이 있다.' }
       ],
       kahootNote: '카훗 분석: "제독이 항상 먼저"라는 오개념 다수.'
     },
     {
       id: 'antidote',
       type: 'choice',
-      title: '4. 시안화물 해독제 선택',
-      situation: '환자 A 응급실 도착. 호흡 부전·산-염기 이상·심전도 이상. 시안화물 중독 강력 시사.',
+      title: '4. 시안화물 해독제 선택 — Hospital Clinician',
+      situation: '환자 A 응급실 도착: 호흡 부전, 대사성 산증(젖산 12 mmol/L), QT 연장 동반 부정맥, 정맥혈 동맥혈화. HCN 노출 이력 확인.',
       question: '1차 선택 해독제는?',
       correctOptionId: 'hydroxocobalamin',
       options: [
@@ -168,27 +168,27 @@
           feedback: '오답. Atropine/2-PAM은 신경작용제·콜린성 중독 해독제이지, 단독 시안화물 중독에는 적응증이 아니다.' },
         { id: 'calcium_gluconate', text: 'Calcium gluconate (글루콘산칼슘)', isCorrect: false,
           feedback: '오답. Calcium gluconate는 불산(HF) 노출에 사용되지, 시안화물에는 적응증이 아니다.' },
-        { id: 'naloxone', text: 'Naloxone (날록손, 오피오이드 길항제)', isCorrect: false,
-          feedback: '오답. Naloxone은 오피오이드 길항제. 시안화물 중독에 효과 없음.' }
+        { id: 'naloxone', text: 'Naloxone (날록손)', isCorrect: false,
+          feedback: '오답. Naloxone은 오피오이드 길항제로, 시안화물 중독의 산소-운반·세포호흡 차단 기전에 작용하지 않아 효과가 없다.' }
       ],
       kahootNote: '카훗 분석: Atropine·Calcium gluconate 오답 빈발.'
     },
     {
       id: 'semantics',
       type: 'choice',
-      title: '5. 의미론적 매핑 결정',
-      situation: '국경 너머에서 환자를 "Critical"로 보고. 공동 대시보드에는 한국 DMAT/START 용어가 표시되어야 한다.',
-      question: '의미론 오피서로서 가장 적절한 처리는?',
+      title: '5. 의미론적 매핑 결정 — Medical Semantics Officer',
+      situation: '국경 너머 EMS가 환자 다수를 "Critical"로 표기해 전송. 공동 대시보드는 한국 DMAT/START 용어 체계로 운영 중.',
+      question: 'Medical Semantics Officer로서 어떻게 처리해야 하는가?',
       correctOptionId: 'semantic_mapping_confirmed',
       options: [
-        { id: 'semantic_mapping_confirmed', text: '원어 보존 + Red 매핑 + 등가부재 플래그', isCorrect: true,
+        { id: 'semantic_mapping_confirmed', text: '원어 보존, Red 매핑, 등가부재 플래그 기록', isCorrect: true,
           feedback: '정답. 원어("Critical") 보존, 공유 대시보드용 운영적 매핑(Red/Immediate), "1:1 등가 없음" 플래그까지 함께 기록해야 사후검증·거버넌스가 성립한다.' },
-        { id: 'silent_substitution', text: '원어 삭제하고 Red로 자동 치환', isCorrect: false,
-          feedback: '오답. 원어 손실 → 사후 검증 불가. 사일런트 매핑은 의미론 거버넌스 위반.' },
-        { id: 'no_mapping', text: '매핑 없이 원래 시스템에 그대로 둠', isCorrect: false,
-          feedback: '오답. 공동 대시보드 가시성이 사라져 우선순위가 흐트러진다.' },
-        { id: 'mismap_yellow', text: '"Critical"을 Yellow/Delayed로 매핑', isCorrect: false,
-          feedback: '오답. 의미상 우선순위 손실 — 즉각 처치 환자가 후순위로 밀린다.' }
+        { id: 'silent_substitution', text: '원어 삭제 후 Red/Immediate로 자동 치환', isCorrect: false,
+          feedback: '오답. 원어 손실 → 사후 검증·감사 불가. 사일런트 매핑은 의미론 거버넌스 위반이며, 책임 추적이 불가능해진다.' },
+        { id: 'no_mapping', text: '매핑하지 않고 원시스템 표기 그대로 유지', isCorrect: false,
+          feedback: '오답. 공동 대시보드의 가시성·일관성이 사라져 우선순위 판단과 자원 배분이 흐트러진다.' },
+        { id: 'mismap_yellow', text: '"Critical"을 Yellow/Delayed로 강등 매핑', isCorrect: false,
+          feedback: '오답. 의미상 우선순위가 손실되어 즉각 처치가 필요한 환자가 후순위로 밀리고, 사망률이 증가할 수 있다.' }
       ],
       mappingTable: SEMANTICS_MAP,
       kahootNote: '교훈: 의미론·거버넌스 문제는 기술 문제와 동일하게 중요.'
@@ -196,28 +196,28 @@
     {
       id: 'degraded',
       type: 'choice',
-      title: '6. 저하 네트워크 인젝트 (Degraded Network)',
-      situation: '공동 대시보드 지연 90초, 병원 가용병상 stale, 중복 메시지 1건, 무전 잡음 발생.',
-      question: '가장 적절한 대응은?',
+      title: '6. 저하 네트워크 인젝트 (Degraded Network) — Dispatch Coordinator',
+      situation: '공동 대시보드 갱신 90초 지연, 병원 가용병상 데이터 stale, 중복 메시지 수신, 무전 잡음 발생. 환자 인계는 계속되어야 한다.',
+      question: '저하 네트워크 상태에서 가장 적절한 운영 절차는?',
       correctOptionId: 'timestamp_partial_radio',
       options: [
-        { id: 'timestamp_partial_radio', text: '타임스탬프·불확실성 표시·부분 갱신·무전 폴백', isCorrect: true,
-          feedback: '정답. 타임스탬프 부여, 불확실성 명시, 역할 기반 부분 갱신, 무전 폴백이 정공법. 지연 메트릭은 별도 트래킹.' },
-        { id: 'wait_for_recovery', text: '대시보드 복구될 때까지 의사결정 보류', isCorrect: false,
-          feedback: '오답. 대기 중 사상자 누적 — degraded 상태에서도 결정해야 한다.' },
-        { id: 'spam_resend', text: '같은 메시지를 5회 재송신해 강제 동기화', isCorrect: false,
-          feedback: '오답. 중복 메시지가 늘어나 더 큰 혼선 야기.' },
-        { id: 'social_media_fallback', text: '무전을 끊고 SNS로 공지 전환', isCorrect: false,
-          feedback: '오답. 비공식 채널 사용은 거버넌스·보안 위반.' }
+        { id: 'timestamp_partial_radio', text: '타임스탬프·불확실성 표시 + 부분 갱신 + 무전 폴백', isCorrect: true,
+          feedback: '정답. 타임스탬프 부여, 불확실성 명시, 역할 기반 부분 갱신, 무전 폴백이 정공법. 지연 메트릭은 별도 트래킹하여 회복 시간(목표 ≤ 120초)을 측정한다.' },
+        { id: 'wait_for_recovery', text: '대시보드 복구될 때까지 의사결정을 모두 보류', isCorrect: false,
+          feedback: '오답. 대기하는 동안 사상자가 누적된다. degraded 상태에서도 가용한 정보로 결정을 내려야 하며, 결정 보류는 환자 위해를 야기한다.' },
+        { id: 'spam_resend', text: '동일 메시지를 5회 이상 재송신해 강제 동기화', isCorrect: false,
+          feedback: '오답. 중복 메시지가 누적되어 더 큰 혼선과 채널 포화를 야기하고, 진짜 신호가 묻혀버린다.' },
+        { id: 'social_media_fallback', text: '무전 채널을 끊고 비공식 SNS 공지로 전환', isCorrect: false,
+          feedback: '오답. 비공식 채널은 거버넌스·보안·기록 보존 요건을 위반하며, 사후 감사가 불가능해진다.' }
       ],
       latencyTargetSec: 120
     },
     {
       id: 'transport',
       type: 'choice',
-      title: '7. 국경간 병원 배정 / 오염 환자 이송',
-      situation: '핫존에서 직접 인접 일반 병원으로 환자 직송 요청이 들어왔다. 병원 사전 통보 미실시, 제독 미실시.',
-      question: 'Hospital Coordinator로서 가장 적절한 결정은?',
+      title: '7. 국경간 병원 배정 / 오염 환자 이송 — Hospital Coordinator',
+      situation: '현장팀이 인접 일반 병원으로 환자 직송을 요청. 병원 사전 통보·수용 확인·제독 절차 모두 미실시 상태.',
+      question: 'Hospital Coordinator의 결정은?',
       correctOptionId: 'decon_notify_assign',
       options: [
         { id: 'decon_notify_assign', text: '제독·사전 통보 후 지정 수용병원 배정', isCorrect: true,
@@ -294,12 +294,38 @@
     if (transport && transport.correct) strengths.push('오염 환자 직송 금지·사전 통보 준수');
     else if (transport) improvements.push('미제독 환자 직송 금지 절차 재학습');
 
-    if (improvements.length > 0) {
-      recommendations.push('카훗 약점 영역(시안화물 해독제·사전 제독·Red 분류)에 초점 둔 재훈련');
-      recommendations.push('국경간 의미론 매핑 SOP — 원어 보존·플래그·1:1 등가 부재 명시');
-      recommendations.push('Degraded Network 상황 카드를 정기 인젝트로 포함');
-    } else {
-      recommendations.push('현재 수행 수준을 유지하고, 보다 복잡한 멀티허브 시나리오로 확장');
+    if (antidote && !antidote.correct) {
+      recommendations.push('해독제 매트릭스(시안화물=Hydroxocobalamin, 신경작용제=Atropine+2-PAM, HF=Calcium gluconate) 카드 학습 후 재훈련');
+    }
+    if (predecon && !predecon.correct) {
+      recommendations.push('"사전 응급처치 → 제독" 우선순위 SOP 재학습 — 생명 위협 상황에서 루틴 제독 줄 회피 절차 포함');
+    }
+    if (triage && !triage.correct) {
+      recommendations.push('START/MASS 분류 카드 — 호흡·관류·의식(RPM) 기준으로 Red/Immediate 인지 반복 훈련');
+    }
+    if (semantics && !semantics.correct) {
+      recommendations.push('국경간 의미론 매핑 SOP — 원어 보존, 운영 매핑, 등가부재 플래그 3단계 절차 도입');
+    }
+    if (degraded && !degraded.correct) {
+      recommendations.push('Degraded Network 상황 카드를 분기별 정기 인젝트로 포함, 무전 폴백·타임스탬프 부여 절차 훈련');
+    }
+    if (transport && !transport.correct) {
+      recommendations.push('미제독·미통보 환자 직송 금지 — 사전 통보→제독→수용역량 확인→배정 4단계 체크리스트 배포');
+    }
+
+    if (triageLatencySec !== null && triageLatencySec > 90) {
+      recommendations.push('분류→대시보드 지연이 목표(90초)를 초과 — 분류 카드 단순화 및 입력 인터페이스 개선 필요');
+    }
+    if (handoverLatencySec !== null && handoverLatencySec > 180) {
+      recommendations.push('인계 지연이 목표(180초)를 초과 — 핸드오프 SBAR 카드 표준화 권장');
+    }
+    if (degradedRecoverySec !== null && degradedRecoverySec > 120) {
+      recommendations.push('저하 네트워크 회복이 목표(120초)를 초과 — 폴백 절차 자동화 및 사전 시뮬레이션 강화');
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push('현재 수행 수준을 유지하고, 다중 허브·다중 시간대 시나리오로 확장 — 야간/주말 인력 축소 조건 추가');
+      recommendations.push('국경간 합동 훈련을 분기 1회 정기화하여 의미론 거버넌스·degraded 절차 숙련도 유지');
     }
 
     return {
@@ -754,8 +780,10 @@
     SCENARIO_MATRIX: SCENARIO_MATRIX,
     SEMANTICS_MAP: SEMANTICS_MAP,
     computeAAR: computeAAR,
-    // 테스트/QA: 셔플 헬퍼와 세션 단계 빌더 노출
     _shuffleArray: shuffleArray,
-    _buildRandomizedSteps: buildRandomizedSteps
+    _buildRandomizedSteps: buildRandomizedSteps,
+    _scoreOption: function(step, opt) {
+      return !!(opt && (opt.isCorrect === true || (step && step.correctOptionId && opt.id === step.correctOptionId)));
+    }
   };
 })();
