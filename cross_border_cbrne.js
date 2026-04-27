@@ -98,6 +98,8 @@
   ];
 
   // ---- 결정 단계 (영문판과 동일 시퀀스/스코어링) ----
+  // 옵션은 안정 ID로 식별 (정답 판정은 id/isCorrect 기반, 인덱스 비의존).
+  // 옵션 라벨 길이를 균등화하고 상세 설명은 feedback/AAR로 이동.
   var STEPS = [
     {
       id: 'briefing',
@@ -120,14 +122,15 @@
       title: '2. MASS/START 분류 결정',
       situation: '환자 A: HCN 노출, 호흡곤란·의식저하, 보행 불가, 시안화물 흡입 의심.',
       question: '이 환자에 대한 분류는?',
+      correctOptionId: 'red_immediate',
       options: [
-        { text: 'Red / Immediate (즉시)', correct: true,
+        { id: 'red_immediate', text: 'Red / Immediate (즉시)', isCorrect: true,
           feedback: '정답. 호흡곤란·의식변화·보행 불가 → START에서 Red/Immediate. 즉시 해독제 동선 확보가 필요.' },
-        { text: 'Yellow / Delayed (지연)', correct: false,
+        { id: 'yellow_delayed', text: 'Yellow / Delayed (지연)', isCorrect: false,
           feedback: '오답. 의식 변화·호흡곤란이 동반된 시안화물 의심 환자는 Yellow가 아니다.' },
-        { text: 'Green / Minor (경미)', correct: false,
+        { id: 'green_minor', text: 'Green / Minor (경미)', isCorrect: false,
           feedback: '오답. 보행 불가·의식 저하 환자는 Green이 될 수 없다.' },
-        { text: 'Black / Expectant', correct: false,
+        { id: 'black_expectant', text: 'Black / Expectant (기대불가)', isCorrect: false,
           feedback: '오답. 자발 호흡·반응이 남아 있으면 Expectant가 아니다 — 즉시 처치 가능.' }
       ],
       kahootNote: '카훗 분석: Red 분류를 Yellow/Green으로 오답하는 학생이 다수.'
@@ -138,15 +141,16 @@
       title: '3. 사전(우선) 제독 우선순위',
       situation: '핫존에서 끌려 나온 위중 환자. 제독 줄은 길고, 바로 응급처치가 필요한 상황.',
       question: '가장 적절한 우선순위는?',
+      correctOptionId: 'priority_0',
       options: [
-        { text: '우선순위 0 — 즉시 생명구조 처치 후 제독', correct: true,
-          feedback: '정답. 생명 위협이 있을 때는 루틴 wet decon보다 즉시 응급처치(기도·해독제)가 우선.' },
-        { text: '눕힌 채 wet decon 먼저', correct: false,
+        { id: 'priority_0', text: '우선순위 0 — 즉시 응급처치 후 제독', isCorrect: true,
+          feedback: '정답. 생명 위협이 있을 때는 루틴 wet decon보다 즉시 응급처치(기도·해독제)가 우선. 제독은 응급처치 직후에 이어서 수행.' },
+        { id: 'wet_decon_first', text: '루틴 wet decon 먼저, 처치는 후', isCorrect: false,
           feedback: '오답. 생명 위협 환자에게 루틴 wet decon을 먼저 하면 사망 위험 증가.' },
-        { text: '눕힌 채 dry decon 먼저', correct: false,
-          feedback: '오답. dry decon도 생명 구조 처치보다 선행돼서는 안 된다.' },
-        { text: '제독 후 분류 다시 받기', correct: false,
-          feedback: '오답. 제독 지연으로 응급처치가 늦어진다.' }
+        { id: 'dry_decon_first', text: '루틴 dry decon 먼저, 처치는 후', isCorrect: false,
+          feedback: '오답. dry decon도 즉각 생명 구조 처치보다 선행돼서는 안 된다.' },
+        { id: 'retriage_after_decon', text: '제독 완료 후 재분류 시행', isCorrect: false,
+          feedback: '오답. 제독 지연으로 응급처치가 늦어져 사망 위험.' }
       ],
       kahootNote: '카훗 분석: "제독이 항상 먼저"라는 오개념 다수.'
     },
@@ -156,14 +160,15 @@
       title: '4. 시안화물 해독제 선택',
       situation: '환자 A 응급실 도착. 호흡 부전·산-염기 이상·심전도 이상. 시안화물 중독 강력 시사.',
       question: '1차 선택 해독제는?',
+      correctOptionId: 'hydroxocobalamin',
       options: [
-        { text: 'Hydroxocobalamin (히드록소코발라민)', correct: true,
-          feedback: '정답. Hydroxocobalamin이 시안화물 중독의 1차 해독제. 시안 이온과 결합해 시아노코발라민으로 배설.' },
-        { text: 'Atropine + 2-PAM (프랄리독심)', correct: false,
+        { id: 'hydroxocobalamin', text: 'Hydroxocobalamin (히드록소코발라민)', isCorrect: true,
+          feedback: '정답. Hydroxocobalamin이 시안화물 중독의 1차 해독제 — 시안 이온과 결합해 시아노코발라민(소변 배설)으로 무독화.' },
+        { id: 'atropine_2pam', text: 'Atropine + 2-PAM (아트로핀·프랄리독심)', isCorrect: false,
           feedback: '오답. Atropine/2-PAM은 신경작용제·콜린성 중독 해독제이지, 단독 시안화물 중독에는 적응증이 아니다.' },
-        { text: 'Calcium gluconate (글루콘산칼슘)', correct: false,
+        { id: 'calcium_gluconate', text: 'Calcium gluconate (글루콘산칼슘)', isCorrect: false,
           feedback: '오답. Calcium gluconate는 불산(HF) 노출에 사용되지, 시안화물에는 적응증이 아니다.' },
-        { text: 'Naloxone (날록손)', correct: false,
+        { id: 'naloxone', text: 'Naloxone (날록손, 오피오이드 길항제)', isCorrect: false,
           feedback: '오답. Naloxone은 오피오이드 길항제. 시안화물 중독에 효과 없음.' }
       ],
       kahootNote: '카훗 분석: Atropine·Calcium gluconate 오답 빈발.'
@@ -172,16 +177,17 @@
       id: 'semantics',
       type: 'choice',
       title: '5. 의미론적 매핑 결정',
-      situation: '국경 너머 EU 측에서 환자를 "Critical"로 보고. 공동 대시보드에는 한국 DMAT/START 용어가 표시되어야 한다.',
+      situation: '국경 너머에서 환자를 "Critical"로 보고. 공동 대시보드에는 한국 DMAT/START 용어가 표시되어야 한다.',
       question: '의미론 오피서로서 가장 적절한 처리는?',
+      correctOptionId: 'semantic_mapping_confirmed',
       options: [
-        { text: '원어("Critical") 보존 + Red/Immediate로 매핑 + "1:1 등가 없음, 운영적 매핑" 플래그', correct: true,
-          feedback: '정답. 원어 보존, 공유 대시보드용 매핑, 그리고 거버넌스/플래그를 함께 남겨야 한다 — 의미론 문제는 기술 문제만큼 중요하다.' },
-        { text: '"Critical" → 그냥 "Red"로 자동 치환, 원어 삭제', correct: false,
-          feedback: '오답. 원어 손실 → 사후 검증 불가. 사일런트 매핑 위험.' },
-        { text: '매핑하지 않고 EU 측 시스템에 그대로 남김', correct: false,
+        { id: 'semantic_mapping_confirmed', text: '원어 보존 + Red 매핑 + 등가부재 플래그', isCorrect: true,
+          feedback: '정답. 원어("Critical") 보존, 공유 대시보드용 운영적 매핑(Red/Immediate), "1:1 등가 없음" 플래그까지 함께 기록해야 사후검증·거버넌스가 성립한다.' },
+        { id: 'silent_substitution', text: '원어 삭제하고 Red로 자동 치환', isCorrect: false,
+          feedback: '오답. 원어 손실 → 사후 검증 불가. 사일런트 매핑은 의미론 거버넌스 위반.' },
+        { id: 'no_mapping', text: '매핑 없이 원래 시스템에 그대로 둠', isCorrect: false,
           feedback: '오답. 공동 대시보드 가시성이 사라져 우선순위가 흐트러진다.' },
-        { text: '"Critical"을 Yellow/Delayed로 매핑', correct: false,
+        { id: 'mismap_yellow', text: '"Critical"을 Yellow/Delayed로 매핑', isCorrect: false,
           feedback: '오답. 의미상 우선순위 손실 — 즉각 처치 환자가 후순위로 밀린다.' }
       ],
       mappingTable: SEMANTICS_MAP,
@@ -193,15 +199,16 @@
       title: '6. 저하 네트워크 인젝트 (Degraded Network)',
       situation: '공동 대시보드 지연 90초, 병원 가용병상 stale, 중복 메시지 1건, 무전 잡음 발생.',
       question: '가장 적절한 대응은?',
+      correctOptionId: 'timestamp_partial_radio',
       options: [
-        { text: '타임스탬프 부여·불확실성 명시·역할별 부분 갱신·무전 폴백 사용', correct: true,
-          feedback: '정답. 타임스탬프, 불확실성 표시, 역할 기반 갱신, 무전 폴백이 정공법. 지연 메트릭 트래킹.' },
-        { text: '대시보드 복구될 때까지 의사결정 보류', correct: false,
+        { id: 'timestamp_partial_radio', text: '타임스탬프·불확실성 표시·부분 갱신·무전 폴백', isCorrect: true,
+          feedback: '정답. 타임스탬프 부여, 불확실성 명시, 역할 기반 부분 갱신, 무전 폴백이 정공법. 지연 메트릭은 별도 트래킹.' },
+        { id: 'wait_for_recovery', text: '대시보드 복구될 때까지 의사결정 보류', isCorrect: false,
           feedback: '오답. 대기 중 사상자 누적 — degraded 상태에서도 결정해야 한다.' },
-        { text: '같은 메시지를 5번 더 재송신해 강제 동기화', correct: false,
+        { id: 'spam_resend', text: '같은 메시지를 5회 재송신해 강제 동기화', isCorrect: false,
           feedback: '오답. 중복 메시지가 늘어나 더 큰 혼선 야기.' },
-        { text: '무전 끊고 SNS로 공지', correct: false,
-          feedback: '오답. 비공식 채널 사용은 거버넌스/보안 위반.' }
+        { id: 'social_media_fallback', text: '무전을 끊고 SNS로 공지 전환', isCorrect: false,
+          feedback: '오답. 비공식 채널 사용은 거버넌스·보안 위반.' }
       ],
       latencyTargetSec: 120
     },
@@ -211,18 +218,41 @@
       title: '7. 국경간 병원 배정 / 오염 환자 이송',
       situation: '핫존에서 직접 인접 일반 병원으로 환자 직송 요청이 들어왔다. 병원 사전 통보 미실시, 제독 미실시.',
       question: 'Hospital Coordinator로서 가장 적절한 결정은?',
+      correctOptionId: 'decon_notify_assign',
       options: [
-        { text: '제독 + 사전 통보 + 수용역량 확인 후 지정 수용병원으로 배정', correct: true,
-          feedback: '정답. 미제독·미통보 직송은 절대 금지 — 수용병원 오염 시 추가 사상자·시설 폐쇄.' },
-        { text: '가장 가까운 일반 병원으로 즉시 직송 (제독 생략)', correct: false,
+        { id: 'decon_notify_assign', text: '제독·사전 통보 후 지정 수용병원 배정', isCorrect: true,
+          feedback: '정답. 미제독·미통보 직송은 절대 금지 — 제독, 사전 통보, 수용역량 확인 후 지정 수용병원으로 배정. 위반 시 수용병원 오염→추가 사상자·시설 폐쇄.' },
+        { id: 'direct_to_nearest', text: '가장 가까운 일반 병원으로 즉시 직송', isCorrect: false,
           feedback: '오답. 미제독 환자 직송은 가장 빈번한 예방가능 오류.' },
-        { text: '병상 확인 없이 큰 대학병원으로 일괄 송부', correct: false,
+        { id: 'bulk_to_university', text: '병상 확인 없이 대학병원으로 일괄 송부', isCorrect: false,
           feedback: '오답. 수용역량 미확인 — 추가 혼란.' },
-        { text: '환자 가족이 알아서 이송하도록 지시', correct: false,
+        { id: 'family_self_transport', text: '환자 가족이 자체 이송하도록 지시', isCorrect: false,
           feedback: '오답. 지휘체계·오염 통제 위반.' }
       ]
     }
   ];
+
+  // ---- Fisher-Yates 셔플 (옵션 순서 비편향 무작위화) ----
+  function shuffleArray(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  // 세션 시작 시 STEPS의 옵션 순서를 무작위화한 사본 생성.
+  // 결정 단계만 셔플하며, 정답 판정은 option.id / option.isCorrect로 수행 (인덱스 비의존).
+  function buildRandomizedSteps() {
+    return STEPS.map(function(step) {
+      if (step.type !== 'choice' || !step.options) return step;
+      var copy = {};
+      for (var k in step) { if (step.hasOwnProperty(k)) copy[k] = step[k]; }
+      copy.options = shuffleArray(step.options);
+      return copy;
+    });
+  }
 
   // ---- AAR 계산 ----
   function computeAAR(state) {
@@ -313,15 +343,22 @@
       answered: false,
       selected: -1,
       stepStartMs: Date.now(),
-      runStartMs: Date.now()
+      runStartMs: Date.now(),
+      // 세션 단위로 옵션이 셔플된 단계 사본. 셔플 후에는 같은 단계 안에서 안정적으로 유지된다.
+      steps: buildRandomizedSteps()
     };
+  }
+
+  function getSessionSteps() {
+    if (!G.cbcbState || !G.cbcbState.steps) return STEPS;
+    return G.cbcbState.steps;
   }
 
   // ---- 렌더 ----
   function renderCBCBStep() {
     if (!G.cbcbState) initState();
     var st = G.cbcbState;
-    var step = STEPS[st.stepIdx];
+    var step = getSessionSteps()[st.stepIdx];
     if (!step) { showCBCBAAR(); return; }
 
     if (step.type === 'briefing') {
@@ -398,8 +435,8 @@
       var letter = String.fromCharCode(65 + i);
       var cls = '';
       if (st.answered) {
-        if (opt.correct) cls = 'correct';
-        else if (i === st.selected && !opt.correct) cls = 'wrong';
+        if (opt.isCorrect) cls = 'correct';
+        else if (i === st.selected && !opt.isCorrect) cls = 'wrong';
       }
       return '<button class="q-opt ' + cls + '" data-cbcb-i="' + i + '" ' + (st.answered ? 'disabled' : '') + '>' +
         '<span class="q-letter">' + letter + '</span>' +
@@ -493,16 +530,19 @@
   function answerCBCB(idx) {
     var st = G.cbcbState;
     if (st.answered) return;
-    var step = STEPS[st.stepIdx];
+    var step = getSessionSteps()[st.stepIdx];
     st.answered = true;
     st.selected = idx;
     stopTimer('cbcbTimer');
 
+    // 정답 판정은 옵션 식별자(id/isCorrect) 기반 — 셔플된 인덱스에 의존하지 않음.
     var opt = step.options[idx];
-    var correct = !!(opt && opt.correct);
+    var correct = !!(opt && (opt.isCorrect === true || (step.correctOptionId && opt.id === step.correctOptionId)));
 
-    Tracker.recordAnswer('cbcb_' + step.id, String(idx), correct);
-    recordStepResult(step, correct, idx);
+    // Tracker에는 옵션 ID를 기록(분석/AAR용). 폴백으로 인덱스 사용.
+    var chosenId = (opt && opt.id) ? opt.id : String(idx);
+    Tracker.recordAnswer('cbcb_' + step.id, chosenId, correct);
+    recordStepResult(step, correct, idx, opt);
 
     if (correct) {
       sfx('correct'); flashScreen('green');
@@ -520,7 +560,7 @@
     renderCBCBStep();
   }
 
-  function recordStepResult(step, correct, chosenIdx) {
+  function recordStepResult(step, correct, chosenIdx, chosenOpt) {
     var st = G.cbcbState;
     var now = Date.now();
     st.results.push({
@@ -528,6 +568,8 @@
       title: step.title,
       correct: correct,
       chosen: chosenIdx,
+      chosenOptionId: chosenOpt && chosenOpt.id ? chosenOpt.id : null,
+      chosenOptionLabel: chosenOpt && chosenOpt.text ? chosenOpt.text : null,
       timeMs: now - st.stepStartMs,
       atMs: now - st.runStartMs,
       atIso: new Date().toISOString()
@@ -711,6 +753,9 @@
     STEPS: STEPS,
     SCENARIO_MATRIX: SCENARIO_MATRIX,
     SEMANTICS_MAP: SEMANTICS_MAP,
-    computeAAR: computeAAR
+    computeAAR: computeAAR,
+    // 테스트/QA: 셔플 헬퍼와 세션 단계 빌더 노출
+    _shuffleArray: shuffleArray,
+    _buildRandomizedSteps: buildRandomizedSteps
   };
 })();
