@@ -1040,7 +1040,8 @@ function renderInlineAdmin() {
     ctm: '대테러의학',
     hseep: 'HSEEP 훈련 설계',
     boss: '보스 도전',
-    surge: 'SURGE 시나리오'
+    surge: 'SURGE 시나리오',
+    crossBorderCbrne: 'Cross-Border CBRNe Drill'
   };
 
   // Remove existing overlay if present
@@ -1197,7 +1198,7 @@ function renderInlineAdmin() {
     const students = Object.entries(_liveStudentsKR);
     const TEAM_COLORS = { Alpha:'#e74c3c', Bravo:'#3498db', Charlie:'#2ecc71', Delta:'#f1c40f', Echo:'#9b59b6' };
     const TEAM_ICONS = { Alpha:'\ud83d\udd34', Bravo:'\ud83d\udd35', Charlie:'\ud83d\udfe2', Delta:'\ud83d\udfe1', Echo:'\ud83d\udfe3' };
-    const MODE_LBL = { triage:'START Triage', cbrne:'CBRNE', mci:'MCI \uc9c0\ud718', quiz:'\uae30\ubcf8 \ud034\uc988', ethics:'\uc724\ub9ac', leadership:'\ub9ac\ub354\uc2ed', teamwork:'\ud300\uc6cc\ud06c', cbrne_adv:'CBRNE \uc2ec\ud654', tactical:'\uc804\uc220\uc758\ud559', ctm:'\ub300\ud14c\ub7ec\uc758\ud559', hseep:'HSEEP', campaign:'\uce94\ud398\uc778', surge:'SURGE', boss:'\ubcf4\uc2a4' };
+    const MODE_LBL = { triage:'START Triage', cbrne:'CBRNE', mci:'MCI \uc9c0\ud718', quiz:'\uae30\ubcf8 \ud034\uc988', ethics:'\uc724\ub9ac', leadership:'\ub9ac\ub354\uc2ed', teamwork:'\ud300\uc6cc\ud06c', cbrne_adv:'CBRNE \uc2ec\ud654', tactical:'\uc804\uc220\uc758\ud559', ctm:'\ub300\ud14c\ub7ec\uc758\ud559', hseep:'HSEEP', campaign:'\uce94\ud398\uc778', surge:'SURGE', boss:'\ubcf4\uc2a4', crossBorderCbrne:'Cross-Border CBRNe Drill' };
     const teams = {};
     let unassigned = [];
 
