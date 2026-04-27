@@ -1503,6 +1503,151 @@ function renderInlineAdmin() {
     } else {
       container.appendChild(makeTable(headers, rows));
     }
+
+    // ---- Cross-Border CBRNe Drill: drill-specific admin summary ----
+    renderCrossBorderCBRNeSummary(container, sessions);
+  }
+
+  // Drill-specific summary for the Cross-Border CBRNe Drill mode.
+  // Pulls from LocalStore mode results (which carry the structured AAR
+  // payload added by cross_border_cbrne.js) and per-step answer rows.
+  function renderCrossBorderCBRNeSummary(container, sessions) {
+    const KEY = 'crossBorderCbrne';
+    const runs = [];
+    const perStepAnswers = []; // flattened answer rows for crossBorderCbrne
+    sessions.forEach(s => {
+      (s.modes || []).forEach(m => { if (m.mode === KEY) runs.push(m); });
+      (s.answers || []).forEach(a => { if (a.mode === KEY) perStepAnswers.push(a); });
+    });
+    if (runs.length === 0 && perStepAnswers.length === 0) return;
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-top:28px;padding:16px;background:rgba(127,143,255,0.05);border:1px solid rgba(127,143,255,0.25);border-radius:12px;';
+    const h = document.createElement('h3');
+    h.textContent = '🌐 Cross-Border CBRNe Drill — 드릴 분석 요약';
+    h.style.cssText = 'margin:0 0 12px;color:#a78bfa;';
+    wrap.appendChild(h);
+
+    // Aggregate run-level metrics from AAR payloads when present.
+    let totalAccuracy = 0, accuracyN = 0;
+    let totalScore = 0, scoreN = 0;
+    let totalRespSec = 0, respN = 0;
+    let antidoteOk = 0, antidoteN = 0;
+    let semanticsOk = 0, semanticsN = 0;
+    let predeconOk = 0, predeconN = 0;
+    let triagePass = 0, triageN = 0;       // ≤90s
+    let handoverPass = 0, handoverN = 0;   // ≤180s
+    let degradedPass = 0, degradedN = 0;   // ≤120s
+    let contamPass = 0, contamN = 0;       // =0
+    runs.forEach(r => {
+      if (typeof r.score === 'number') { totalScore += r.score; scoreN++; }
+      if (r.total) { totalAccuracy += (r.correct / r.total) * 100; accuracyN++; }
+      const aar = r.aar;
+      if (!aar) return;
+      if (typeof aar.triageToDashboardSec === 'number') { triageN++; if (aar.triageToDashboardSec <= 90) triagePass++; }
+      if (typeof aar.handoverLatencySec === 'number') { handoverN++; if (aar.handoverLatencySec <= 180) handoverPass++; }
+      if (typeof aar.degradedNetworkRecoverySec === 'number') { degradedN++; if (aar.degradedNetworkRecoverySec <= 120) degradedPass++; }
+      if (typeof aar.contaminatedTransportErrors === 'number') { contamN++; if (aar.contaminatedTransportErrors === 0) contamPass++; }
+      if (typeof aar.antidoteCorrect === 'boolean') { antidoteN++; if (aar.antidoteCorrect) antidoteOk++; }
+      if (typeof aar.semanticsCorrect === 'boolean') { semanticsN++; if (aar.semanticsCorrect) semanticsOk++; }
+      (aar.perStep || []).forEach(t => {
+        if (t.stepId === 'predecon') { predeconN++; if (t.correct) predeconOk++; }
+      });
+    });
+    perStepAnswers.forEach(a => {
+      if (typeof a.responseTimeSec === 'number') { totalRespSec += a.responseTimeSec; respN++; }
+      else if (typeof a.time_sec === 'number') { totalRespSec += a.time_sec; respN++; }
+    });
+
+    const summary = document.createElement('div');
+    summary.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px;';
+    function card(title, val) {
+      const c = document.createElement('div');
+      c.style.cssText = 'padding:10px;background:#161b2e;border:1px solid #2a3050;border-radius:8px;';
+      c.innerHTML = '<div style="font-size:11px;color:#888;margin-bottom:4px">' + title + '</div>' +
+                    '<div style="font-size:18px;font-weight:bold;color:#e0e0ff">' + val + '</div>';
+      return c;
+    }
+    summary.appendChild(card('참여자(런)', runs.length));
+    summary.appendChild(card('평균 정확도', accuracyN ? Math.round(totalAccuracy / accuracyN) + '%' : '-'));
+    summary.appendChild(card('평균 점수', scoreN ? Math.round(totalScore / scoreN) : '-'));
+    summary.appendChild(card('평균 응답시간', respN ? Math.round(totalRespSec / respN) + 's' : '-'));
+    summary.appendChild(card('해독제 정답률', antidoteN ? Math.round(antidoteOk / antidoteN * 100) + '%' : '-'));
+    summary.appendChild(card('의미론 매핑 정답률', semanticsN ? Math.round(semanticsOk / semanticsN * 100) + '%' : '-'));
+    summary.appendChild(card('사전제독 정답률', predeconN ? Math.round(predeconOk / predeconN * 100) + '%' : '-'));
+    wrap.appendChild(summary);
+
+    // AAR threshold pass rates
+    const thr = document.createElement('div');
+    thr.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:12px;';
+    function thrCard(title, pass, n, target) {
+      const c = document.createElement('div');
+      c.style.cssText = 'padding:10px;background:#161b2e;border:1px solid #2a3050;border-radius:8px;';
+      const pct = n ? Math.round(pass / n * 100) : 0;
+      const color = !n ? '#888' : pct >= 80 ? '#34d399' : pct >= 50 ? '#fbbf24' : '#f87171';
+      c.innerHTML = '<div style="font-size:11px;color:#888;margin-bottom:4px">' + title + '</div>' +
+                    '<div style="font-size:16px;font-weight:bold;color:' + color + '">' + (n ? pct + '% (' + pass + '/' + n + ')' : '-') + '</div>' +
+                    '<div style="font-size:10px;color:#888;margin-top:2px">' + target + '</div>';
+      return c;
+    }
+    thr.appendChild(thrCard('Triage→Dashboard ≤90s', triagePass, triageN, '목표 ≤ 90s'));
+    thr.appendChild(thrCard('Handover ≤180s', handoverPass, handoverN, '목표 ≤ 180s'));
+    thr.appendChild(thrCard('Degraded 회복 ≤120s', degradedPass, degradedN, '목표 ≤ 120s'));
+    thr.appendChild(thrCard('오염 이송 오류 = 0', contamPass, contamN, '목표 = 0'));
+    wrap.appendChild(thr);
+
+    // Item-level correct rate by step + most-missed construct + option distribution
+    const stepStats = {}; // stepId -> { total, correct, byOption: { optId: count } }
+    perStepAnswers.forEach(a => {
+      const sid = a.stepId || (a.question_id || '').replace(/^cbcb_/, '').replace(/__structured$/, '');
+      if (!sid || sid === '__aar_summary' || sid.indexOf('aar') === 0) return;
+      if (!stepStats[sid]) stepStats[sid] = { total: 0, correct: 0, byOption: {}, construct: a.construct || null };
+      const ss = stepStats[sid];
+      ss.total++;
+      if (a.correct) ss.correct++;
+      const optKey = a.selectedOptionId || a.selected || '?';
+      ss.byOption[optKey] = (ss.byOption[optKey] || 0) + 1;
+      if (!ss.construct && a.construct) ss.construct = a.construct;
+    });
+    if (Object.keys(stepStats).length > 0) {
+      const itemHeaders = [
+        { label: '단계' }, { label: 'Construct' }, { label: '응시' },
+        { label: '정답률' }, { label: '선택 분포' }
+      ];
+      const itemRows = Object.entries(stepStats).map(([sid, ss]) => {
+        const acc = ss.total ? Math.round(ss.correct / ss.total * 100) : 0;
+        const dist = Object.entries(ss.byOption)
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, v]) => k + ':' + v).join(' / ');
+        return [sid, ss.construct || '-', ss.total, acc + '%', dist];
+      });
+      const itemTitle = document.createElement('div');
+      itemTitle.style.cssText = 'color:#e0e0ff;font-weight:bold;margin:8px 0 6px;';
+      itemTitle.textContent = '항목별 정답률 + 선택 분포 (디스트랙터 분석)';
+      wrap.appendChild(itemTitle);
+      wrap.appendChild(makeTable(itemHeaders, itemRows));
+
+      // Most-missed construct
+      const constructAgg = {};
+      Object.values(stepStats).forEach(ss => {
+        const c = ss.construct || 'unknown';
+        if (!constructAgg[c]) constructAgg[c] = { total: 0, miss: 0 };
+        constructAgg[c].total += ss.total;
+        constructAgg[c].miss += (ss.total - ss.correct);
+      });
+      const ranked = Object.entries(constructAgg)
+        .filter(([_, v]) => v.total > 0)
+        .sort((a, b) => (b[1].miss / b[1].total) - (a[1].miss / a[1].total));
+      if (ranked.length) {
+        const mm = document.createElement('div');
+        mm.style.cssText = 'margin-top:10px;padding:8px;background:#161b2e;border:1px solid #2a3050;border-radius:8px;font-size:13px;color:#e0e0ff';
+        mm.innerHTML = '<strong>가장 자주 틀리는 construct:</strong> ' +
+          ranked.slice(0, 3).map(([k, v]) => k + ' (' + Math.round(v.miss / v.total * 100) + '%)').join(', ');
+        wrap.appendChild(mm);
+      }
+    }
+
+    container.appendChild(wrap);
   }
 
   function renderTabDetail(container, sessions) {
@@ -1583,18 +1728,41 @@ function renderInlineAdmin() {
 
   function exportCSV(sessions) {
     if (!sessions.length) { alert('내보낼 데이터가 없습니다.'); return; }
-    const rows = [['nickname', 'started_at', 'ended_at', 'total_score', 'max_level', 'max_streak', 'device', 'modes_completed', 'num_answers']];
-    sessions.forEach(s => rows.push([
-      s.nickname || '',
-      s.started_at || '',
-      s.ended_at || '',
-      s.total_score || 0,
-      s.max_level || '',
-      s.max_streak || 0,
-      s.device || '',
-      (s.modes_completed || []).join('|'),
-      (s.answers || []).length
-    ]));
+    const rows = [[
+      'nickname', 'started_at', 'ended_at', 'total_score', 'max_level',
+      'max_streak', 'device', 'modes_completed', 'num_answers',
+      // Cross-Border CBRNe Drill summary columns (best-effort, blank when N/A)
+      'cbcb_score', 'cbcb_correct', 'cbcb_total', 'cbcb_accuracy_pct',
+      'cbcb_triage_to_dashboard_sec', 'cbcb_handover_latency_sec',
+      'cbcb_contaminated_transport_errors', 'cbcb_degraded_recovery_sec',
+      'cbcb_antidote_correct', 'cbcb_semantics_correct', 'cbcb_language'
+    ]];
+    sessions.forEach(s => {
+      const cbcbRun = (s.modes || []).filter(m => m.mode === 'crossBorderCbrne').slice(-1)[0];
+      const aar = cbcbRun && cbcbRun.aar ? cbcbRun.aar : null;
+      rows.push([
+        s.nickname || '',
+        s.started_at || '',
+        s.ended_at || '',
+        s.total_score || 0,
+        s.max_level || '',
+        s.max_streak || 0,
+        s.device || '',
+        (s.modes_completed || []).join('|'),
+        (s.answers || []).length,
+        cbcbRun ? (cbcbRun.score || 0) : '',
+        cbcbRun ? (cbcbRun.correct || 0) : '',
+        cbcbRun ? (cbcbRun.total || 0) : '',
+        aar ? (aar.accuracyPct != null ? aar.accuracyPct : '') : '',
+        aar ? (aar.triageToDashboardSec != null ? aar.triageToDashboardSec : '') : '',
+        aar ? (aar.handoverLatencySec != null ? aar.handoverLatencySec : '') : '',
+        aar ? (aar.contaminatedTransportErrors != null ? aar.contaminatedTransportErrors : '') : '',
+        aar ? (aar.degradedNetworkRecoverySec != null ? aar.degradedNetworkRecoverySec : '') : '',
+        aar ? (aar.antidoteCorrect ? 'true' : 'false') : '',
+        aar ? (aar.semanticsCorrect ? 'true' : 'false') : '',
+        aar ? (aar.language || 'ko') : ''
+      ]);
+    });
     const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

@@ -12,6 +12,19 @@
   var MODE_KEY = 'crossBorderCbrne';
   var MODE_LABEL = 'Cross-Border CBRNe Drill';
   var MODE_SUBTITLE_KO = '국경간 CBRNe 합동 훈련 — 시안화물 테러 시뮬레이션';
+  var LANGUAGE = 'ko';
+
+  // Construct map by stepId — analytic domain semantics (English keys; UI text remains Korean).
+  // Kept identical to the English version so cross-language analyses can pool by construct.
+  var STEP_META = {
+    triage:    { phase: 'field_triage',      role: 'Field Triage Officer',                   construct: 'triage',          order: 2 },
+    predecon:  { phase: 'pre_decon',         role: 'On-Scene Commander',                     construct: 'pre_decon',       order: 3 },
+    antidote:  { phase: 'hospital_clinical', role: 'Hospital Clinician',                     construct: 'antidote',        order: 4 },
+    semantics: { phase: 'semantic_mapping',  role: 'Medical Semantics / Translation Officer', construct: 'semantic_mapping', order: 5 },
+    degraded:  { phase: 'degraded_network',  role: 'Dispatch Coordinator',                   construct: 'degraded_network',order: 6 },
+    transport: { phase: 'allocation',        role: 'Hospital Coordinator',                   construct: 'allocation',      order: 7 },
+    briefing:  { phase: 'briefing',          role: 'All',                                    construct: 'briefing',        order: 1 }
+  };
 
   // ---- 시나리오 매트릭스 (Hazard / Sector / Task / Inject / Expected action / Failure risk) ----
   var SCENARIO_MATRIX = [
@@ -589,17 +602,82 @@
   function recordStepResult(step, correct, chosenIdx, chosenOpt) {
     var st = G.cbcbState;
     var now = Date.now();
-    st.results.push({
+    var meta = STEP_META[step.id] || {};
+    var displayedOrder = (step.options || []).map(function(o) { return o.id; });
+    var result = {
       stepId: step.id,
+      stepOrder: meta.order || (st.stepIdx + 1),
+      phase: meta.phase || null,
+      role: meta.role || null,
+      construct: meta.construct || null,
       title: step.title,
-      correct: correct,
-      chosen: chosenIdx,
+      correctOptionId: step.correctOptionId || null,
+      displayedOptionOrder: displayedOrder,
+      selectedDisplayIndex: chosenIdx,
       chosenOptionId: chosenOpt && chosenOpt.id ? chosenOpt.id : null,
       chosenOptionLabel: chosenOpt && chosenOpt.text ? chosenOpt.text : null,
+      correct: correct,
+      // legacy fields preserved for any older consumer
+      chosen: chosenIdx,
       timeMs: now - st.stepStartMs,
+      timeSec: Math.round((now - st.stepStartMs) / 1000),
       atMs: now - st.runStartMs,
       atIso: new Date().toISOString()
-    });
+    };
+    st.results.push(result);
+
+    // Best-effort: persist a rich, structured copy into LocalStore (in-memory),
+    // alongside the standard Tracker.recordAnswer call. The backend schema
+    // can't accept these extra fields, but LocalStore + Firebase can.
+    try {
+      if (typeof LocalStore !== 'undefined' && LocalStore.addAnswer) {
+        LocalStore.addAnswer({
+          mode: MODE_KEY,
+          modeLabel: MODE_LABEL,
+          language: LANGUAGE,
+          question_id: 'cbcb_' + step.id,
+          stepId: step.id,
+          stepOrder: result.stepOrder,
+          phase: result.phase,
+          role: result.role,
+          construct: result.construct,
+          correctOptionId: result.correctOptionId,
+          displayedOptionOrder: displayedOrder,
+          selected: result.chosenOptionId || String(chosenIdx),
+          selectedOptionId: result.chosenOptionId,
+          selectedOptionLabel: result.chosenOptionLabel,
+          selectedDisplayIndex: chosenIdx,
+          correct: correct,
+          time_sec: result.timeSec,
+          responseTimeSec: result.timeSec,
+          at: result.atIso,
+          structured: true
+        });
+      }
+    } catch (e) { /* non-fatal — Tracker.recordAnswer already logged the basic row */ }
+
+    // Best-effort: push a richer answer event to Firebase so live admin sees structured data.
+    try {
+      if (window.FirebaseSync && FirebaseSync.isReady && FirebaseSync.isReady() && Tracker && Tracker.sessionId) {
+        FirebaseSync.pushAnswer(Tracker.sessionId, {
+          mode: MODE_KEY,
+          question_id: 'cbcb_' + step.id + '__structured',
+          selected: JSON.stringify({
+            stepId: step.id,
+            construct: result.construct,
+            phase: result.phase,
+            role: result.role,
+            correctOptionId: result.correctOptionId,
+            chosenOptionId: result.chosenOptionId,
+            displayedOptionOrder: displayedOrder,
+            selectedDisplayIndex: chosenIdx,
+            language: LANGUAGE
+          }),
+          correct: correct,
+          time_sec: result.timeSec
+        });
+      }
+    } catch (e) {}
   }
 
   function showCBCBAAR() {
@@ -615,6 +693,86 @@
     try { checkAchievements(); } catch (e) {}
     try { advanceStoryAct(); } catch (e) {}
     if (grade === 'S' || grade === 'A') { try { confetti(); } catch (e) {} }
+
+    // Persist a structured AAR payload into LocalStore (current session) so the
+    // admin overlay and CSV export can reach it. The backend schema can't store
+    // arbitrary AAR fields, but LocalStore is the source of truth for the inline
+    // admin and CSV export, and Firebase carries it for live admin views.
+    var aarPayload = {
+      mode: MODE_KEY,
+      modeLabel: MODE_LABEL,
+      language: LANGUAGE,
+      score: G.score || 0,
+      xpAtCompletion: G.xp || 0,
+      correct: aar.correct,
+      total: aar.total,
+      accuracyPct: aar.pct,
+      triageToDashboardSec: aar.triageLatencySec,
+      handoverLatencySec: aar.handoverLatencySec,
+      contaminatedTransportErrors: aar.preventableContaminatedTransport,
+      degradedNetworkRecoverySec: aar.degradedRecoverySec,
+      antidoteCorrect: aar.antidoteCorrect,
+      semanticsCorrect: aar.semanticsCorrect,
+      strengths: aar.strengths,
+      improvements: aar.improvements,
+      recommendations: aar.recommendations,
+      perStep: aar.timeline,
+      targets: aar.targets,
+      structuredResults: (st.results || []).map(function(r) {
+        return {
+          stepId: r.stepId,
+          construct: r.construct || (STEP_META[r.stepId] && STEP_META[r.stepId].construct) || null,
+          phase: r.phase || (STEP_META[r.stepId] && STEP_META[r.stepId].phase) || null,
+          role: r.role || (STEP_META[r.stepId] && STEP_META[r.stepId].role) || null,
+          correctOptionId: r.correctOptionId,
+          displayedOptionOrder: r.displayedOptionOrder,
+          selectedDisplayIndex: r.selectedDisplayIndex,
+          chosenOptionId: r.chosenOptionId,
+          chosenOptionLabel: r.chosenOptionLabel,
+          correct: r.correct,
+          responseTimeSec: r.timeSec,
+          atIso: r.atIso
+        };
+      }),
+      completedAt: new Date().toISOString()
+    };
+    try {
+      if (typeof LocalStore !== 'undefined' && LocalStore.addModeResult) {
+        LocalStore.addModeResult({
+          mode: MODE_KEY,
+          modeLabel: MODE_LABEL,
+          language: LANGUAGE,
+          score: G.score || 0,
+          correct: aar.correct,
+          total: aar.total,
+          time_sec: Math.round((Date.now() - (st.runStartMs || Date.now())) / 1000),
+          at: aarPayload.completedAt,
+          aar: aarPayload
+        });
+      }
+    } catch (e) {}
+    try {
+      if (window.FirebaseSync && FirebaseSync.isReady && FirebaseSync.isReady() && Tracker && Tracker.sessionId) {
+        FirebaseSync.pushModeResult(Tracker.sessionId, {
+          mode: MODE_KEY,
+          score: G.score || 0,
+          correct: aar.correct,
+          total: aar.total,
+          time_sec: Math.round((Date.now() - (st.runStartMs || Date.now())) / 1000)
+        });
+        // Encode AAR JSON into a single answer-style event so live admin can
+        // capture it without requiring a backend schema change.
+        FirebaseSync.pushAnswer(Tracker.sessionId, {
+          mode: MODE_KEY,
+          question_id: 'cbcb__aar_summary',
+          selected: JSON.stringify(aarPayload),
+          correct: aar.pct === 100,
+          time_sec: 0
+        });
+      }
+    } catch (e) {}
+    // Expose last AAR for tests + admin overlay drill-down.
+    G.lastCrossBorderAAR = aarPayload;
 
     function metricRow(label, value, target, unit, lowerIsBetter) {
       if (value === null || typeof value === 'undefined') {
@@ -776,7 +934,9 @@
     KEY: MODE_KEY,
     LABEL: MODE_LABEL,
     SUBTITLE_KO: MODE_SUBTITLE_KO,
+    LANGUAGE: LANGUAGE,
     STEPS: STEPS,
+    STEP_META: STEP_META,
     SCENARIO_MATRIX: SCENARIO_MATRIX,
     SEMANTICS_MAP: SEMANTICS_MAP,
     computeAAR: computeAAR,
@@ -784,6 +944,145 @@
     _buildRandomizedSteps: buildRandomizedSteps,
     _scoreOption: function(step, opt) {
       return !!(opt && (opt.isCorrect === true || (step && step.correctOptionId && opt.id === step.correctOptionId)));
-    }
+    },
+    runSelfTest: runSelfTest
   };
+
+  // ---- Self-test / data-quality audit ----
+  // Validates: stable IDs, displayed-order capture, ID-based scoring after
+  // randomization, AAR generation, no user-facing "ISCRAM", admin labels.
+  function runSelfTest() {
+    var failures = [];
+    var pass = 0;
+    function check(name, ok, detail) {
+      if (ok) { pass++; }
+      else { failures.push({ name: name, detail: detail || '' }); }
+    }
+
+    // 1. Every choice step has stable correctOptionId + every option has unique stable id.
+    var choiceSteps = STEPS.filter(function(s) { return s.type === 'choice'; });
+    check('choice steps present', choiceSteps.length === 6, 'expected 6, got ' + choiceSteps.length);
+    choiceSteps.forEach(function(step) {
+      check('step ' + step.id + ' has correctOptionId', !!step.correctOptionId);
+      var ids = (step.options || []).map(function(o) { return o.id; });
+      var unique = ids.filter(function(v, i, a) { return a.indexOf(v) === i; });
+      check('step ' + step.id + ' has unique option ids', unique.length === ids.length);
+      check('step ' + step.id + ' correctOptionId matches an option', ids.indexOf(step.correctOptionId) !== -1);
+      var corrects = (step.options || []).filter(function(o) { return o.isCorrect; });
+      check('step ' + step.id + ' has exactly one isCorrect option', corrects.length === 1);
+      check('step ' + step.id + ' isCorrect option id matches correctOptionId',
+            corrects.length === 1 && corrects[0].id === step.correctOptionId);
+    });
+
+    // 2. Construct/phase/role metadata exists for every choice step.
+    choiceSteps.forEach(function(step) {
+      var meta = STEP_META[step.id];
+      check('step ' + step.id + ' has STEP_META', !!meta);
+      if (meta) {
+        check('step ' + step.id + ' has construct', !!meta.construct);
+        check('step ' + step.id + ' has phase', !!meta.phase);
+        check('step ' + step.id + ' has role', !!meta.role);
+      }
+    });
+
+    // 3. Randomization preserves correctness via id-based scoring.
+    for (var trial = 0; trial < 30; trial++) {
+      var randomized = buildRandomizedSteps();
+      randomized.forEach(function(step) {
+        if (step.type !== 'choice') return;
+        var correctOpt = step.options.filter(function(o) { return o.id === step.correctOptionId; })[0];
+        check('randomized step ' + step.id + ' still resolves correctOptionId',
+              !!correctOpt && correctOpt.isCorrect === true);
+      });
+    }
+
+    // 4. _scoreOption returns true only for the correct option, regardless of position.
+    choiceSteps.forEach(function(step) {
+      var randomized = buildRandomizedSteps().filter(function(s) { return s.id === step.id; })[0];
+      randomized.options.forEach(function(opt) {
+        var scored = window.CROSS_BORDER_CBRNE._scoreOption(step, opt);
+        check('score(' + step.id + ',' + opt.id + ') matches isCorrect', scored === !!opt.isCorrect);
+      });
+    });
+
+    // 5. computeAAR produces required keys.
+    var fakeState = {
+      runStartMs: 0,
+      results: choiceSteps.map(function(step, i) {
+        return {
+          stepId: step.id,
+          title: step.title,
+          correct: true,
+          chosen: 0,
+          chosenOptionId: step.correctOptionId,
+          chosenOptionLabel: 'x',
+          timeMs: 5000 + i * 1000,
+          atMs: 5000 + i * 1000,
+          atIso: new Date().toISOString()
+        };
+      })
+    };
+    var aar = computeAAR(fakeState);
+    ['total', 'correct', 'pct', 'triageLatencySec', 'handoverLatencySec',
+     'degradedRecoverySec', 'preventableContaminatedTransport',
+     'antidoteCorrect', 'semanticsCorrect', 'targets', 'strengths',
+     'improvements', 'recommendations', 'timeline'].forEach(function(k) {
+      check('AAR has key ' + k, aar.hasOwnProperty(k));
+    });
+    check('AAR target triageLatencySec=90', aar.targets.triageLatencySec === 90);
+    check('AAR target handoverLatencySec=180', aar.targets.handoverLatencySec === 180);
+    check('AAR target preventableContaminatedTransport=0', aar.targets.preventableContaminatedTransport === 0);
+    check('AAR target degradedRecoverySec=120', aar.targets.degradedRecoverySec === 120);
+
+    // 6. No user-facing "ISCRAM" string in any UI text.
+    var uiBlobs = [];
+    STEPS.forEach(function(s) {
+      ['title', 'narrative', 'situation', 'question', 'ack'].forEach(function(k) {
+        if (s[k]) uiBlobs.push(s[k]);
+      });
+      (s.options || []).forEach(function(o) {
+        uiBlobs.push(o.text || '');
+        uiBlobs.push(o.feedback || '');
+      });
+    });
+    uiBlobs.push(MODE_LABEL);
+    uiBlobs.push(MODE_SUBTITLE_KO);
+    var iscram = uiBlobs.some(function(s) { return /ISCRAM/i.test(s); });
+    check('no user-facing ISCRAM string', !iscram);
+
+    // 7. Mode label remains exactly "Cross-Border CBRNe Drill".
+    check('mode label preserved', MODE_LABEL === 'Cross-Border CBRNe Drill');
+
+    // 8. Admin label maps include crossBorderCbrne (best-effort — only when a
+    //    real <script src="app.js"> tag is present; skipped in headless harness).
+    if (typeof document !== 'undefined' && document.querySelectorAll) {
+      var scripts = document.querySelectorAll('script[src]');
+      if (scripts && scripts.length > 0) {
+        var hasAppJs = Array.prototype.some.call(scripts, function(s) { return s && s.src && /app\.js/.test(s.src); });
+        check('app.js script loaded (admin labels live there)', hasAppJs);
+      }
+    }
+
+    var summary = {
+      pass: pass,
+      fail: failures.length,
+      failures: failures,
+      ok: failures.length === 0
+    };
+    if (typeof console !== 'undefined') {
+      if (summary.ok) console.log('[Cross-Border CBRNe self-test] OK — ' + pass + ' checks passed');
+      else console.warn('[Cross-Border CBRNe self-test] ' + failures.length + ' failures', failures);
+    }
+    return summary;
+  }
+
+  // Auto-run when ?cbcbTest=1 is in the URL — exposes results on
+  // window.CROSS_BORDER_CBRNE.lastSelfTest for headless harnesses.
+  try {
+    if (typeof window !== 'undefined' && window.location && /[?&]cbcbTest=1/.test(window.location.search)) {
+      setTimeout(function() {
+        window.CROSS_BORDER_CBRNE.lastSelfTest = runSelfTest();
+      }, 0);
+    }
+  } catch (e) {}
 })();

@@ -229,6 +229,7 @@ tr:hover td{background:rgba(68,138,255,0.05)}
         <div class="tab" onclick="filterQuestions('tactical')">🎯 전술의학</div>
         <div class="tab" onclick="filterQuestions('ctm')">🛡️ 대테러의학</div>
         <div class="tab" onclick="filterQuestions('campaign')">⚔️ 캠페인</div>
+        <div class="tab" onclick="filterQuestions('crossBorderCbrne')">🌐 Cross-Border CBRNe</div>
       </div>
       <table id="question-analytics-table">
         <thead><tr><th>문항 ID</th><th>모드</th><th>응시 수</th><th>정답 수</th><th>정답률</th><th>평균 소요시간</th></tr></thead>
@@ -501,7 +502,8 @@ const MODE_NAMES = {
   hseep_quiz: {icon: '📋', name: 'HSEEP 퀴즈', color: 'var(--blue)'},
   hseep_scenario: {icon: '🏗️', name: 'HSEEP 훈련 설계 실습', color: 'var(--blue)'},
   hseep_template: {icon: '📄', name: 'HSEEP 템플릿 빌더', color: 'var(--blue)'},
-  hseep_campaign: {icon: '⚔️', name: 'HSEEP 캠페인', color: 'var(--blue)'}
+  hseep_campaign: {icon: '⚔️', name: 'HSEEP 캠페인', color: 'var(--blue)'},
+  crossBorderCbrne: {icon: '🌐', name: 'Cross-Border CBRNe Drill', color: 'var(--purple)'}
 };
 
 // Helper: resolve mode name with campaign sub-mode support
