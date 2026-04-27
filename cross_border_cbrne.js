@@ -580,7 +580,26 @@
 
     // Tracker에는 옵션 ID를 기록(분석/AAR용). 폴백으로 인덱스 사용.
     var chosenId = (opt && opt.id) ? opt.id : String(idx);
-    Tracker.recordAnswer('cbcb_' + step.id, chosenId, correct);
+    var stepMeta = STEP_META[step.id] || {};
+    var responseSec = Math.round((Date.now() - (G.cbcbState && G.cbcbState.stepStartMs ? G.cbcbState.stepStartMs : Date.now())) / 1000);
+    var trackerExtras = {
+      stepId: step.id,
+      stepIndex: (G.cbcbState ? G.cbcbState.stepIdx : null),
+      construct: stepMeta.construct || null,
+      phase: stepMeta.phase || null,
+      role: stepMeta.role || null,
+      correctOptionId: step.correctOptionId || null,
+      selectedOptionId: (opt && opt.id) ? opt.id : null,
+      selectedDisplayIndex: idx,
+      displayedOptionOrder: (step.options || []).map(function(o) { return o.id; }),
+      responseTimeSec: responseSec,
+      timeTakenSec: responseSec,
+      modeName: MODE_LABEL,
+      modeKey: MODE_KEY,
+      language: LANGUAGE,
+      version: 'cross-border-cbrne-v1'
+    };
+    Tracker.recordAnswer('cbcb_' + step.id, chosenId, correct, trackerExtras);
     recordStepResult(step, correct, idx, opt);
 
     if (correct) {
@@ -689,15 +708,8 @@
     var grade = getGrade(aar.pct);
     var gradeClass = grade === 'S' ? 's' : grade === 'A' ? 'a' : grade === 'B' ? 'b' : 'c';
 
-    try { Tracker.endMode(aar.correct); } catch (e) { console.warn('Tracker error:', e); }
-    try { checkAchievements(); } catch (e) {}
-    try { advanceStoryAct(); } catch (e) {}
-    if (grade === 'S' || grade === 'A') { try { confetti(); } catch (e) {} }
-
-    // Persist a structured AAR payload into LocalStore (current session) so the
-    // admin overlay and CSV export can reach it. The backend schema can't store
-    // arbitrary AAR fields, but LocalStore is the source of truth for the inline
-    // admin and CSV export, and Firebase carries it for live admin views.
+    // Build the structured AAR payload first so we can also persist it as
+    // mode_results.details on the backend (and reuse it for LocalStore/Firebase).
     var aarPayload = {
       mode: MODE_KEY,
       modeLabel: MODE_LABEL,
@@ -736,6 +748,12 @@
       }),
       completedAt: new Date().toISOString()
     };
+
+    try { Tracker.endMode(aar.correct, aarPayload); } catch (e) { console.warn('Tracker error:', e); }
+    try { checkAchievements(); } catch (e) {}
+    try { advanceStoryAct(); } catch (e) {}
+    if (grade === 'S' || grade === 'A') { try { confetti(); } catch (e) {} }
+
     try {
       if (typeof LocalStore !== 'undefined' && LocalStore.addModeResult) {
         LocalStore.addModeResult({
@@ -945,6 +963,8 @@
     _scoreOption: function(step, opt) {
       return !!(opt && (opt.isCorrect === true || (step && step.correctOptionId && opt.id === step.correctOptionId)));
     },
+    _answerCBCB: answerCBCB,
+    _showAAR: showCBCBAAR,
     runSelfTest: runSelfTest
   };
 

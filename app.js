@@ -446,13 +446,14 @@ const Tracker = {
     this.questionStartTime = Date.now();
   },
 
-  async recordAnswer(questionId, selectedAnswer, isCorrect) {
+  async recordAnswer(questionId, selectedAnswer, isCorrect, extras) {
     const timeTaken = Math.round((Date.now() - this.questionStartTime) / 1000);
     this.modeTotal++;
     if (isCorrect) this.modeCorrect++;
-    LocalStore.addAnswer({ mode: this.currentMode, question_id: String(questionId), selected: String(selectedAnswer), correct: isCorrect, time_sec: timeTaken, at: new Date().toISOString() });
+    const extrasStr = (extras && typeof extras === 'object') ? JSON.stringify(extras) : (extras || null);
+    LocalStore.addAnswer({ mode: this.currentMode, question_id: String(questionId), selected: String(selectedAnswer), correct: isCorrect, time_sec: timeTaken, at: new Date().toISOString(), extras: extras || null });
     if (window.FirebaseSync && FirebaseSync.isReady()) {
-      FirebaseSync.pushAnswer(this.sessionId, { mode: this.currentMode, question_id: String(questionId), selected: String(selectedAnswer), correct: isCorrect, time_sec: timeTaken });
+      FirebaseSync.pushAnswer(this.sessionId, { mode: this.currentMode, question_id: String(questionId), selected: String(selectedAnswer), correct: isCorrect, time_sec: timeTaken, extras: extras || null });
       FirebaseSync.pushSessionUpdate({ sessionId: this.sessionId, nickname: G.nickname, team: G.team||'', total_score: G.score, max_level: G.level, max_streak: G.maxStreak, modes_completed: [...G.modesCompleted], current_mode: this.currentMode, current_progress: {correct: this.modeCorrect, total: this.modeTotal}, device: /Mobi|Android/i.test(navigator.userAgent)?'mobile':'desktop', started_at: '' });
     }
     if (!this.enabled || !this.sessionId) return;
@@ -466,18 +467,20 @@ const Tracker = {
           question_id: String(questionId),
           selected_answer: String(selectedAnswer),
           is_correct: isCorrect,
-          time_taken_sec: timeTaken
+          time_taken_sec: timeTaken,
+          extras: extrasStr
         })
       });
     } catch(e) {}
   },
 
-  async endMode(score) {
+  async endMode(score, details) {
     const timeSpent = Math.round((Date.now() - this.modeStartTime) / 1000);
     this.modeScore = score;
-    LocalStore.addModeResult({ mode: this.currentMode, score, correct: this.modeCorrect, total: this.modeTotal, time_sec: timeSpent, at: new Date().toISOString() });
+    const detailsStr = (details && typeof details === 'object') ? JSON.stringify(details) : (details || null);
+    LocalStore.addModeResult({ mode: this.currentMode, score, correct: this.modeCorrect, total: this.modeTotal, time_sec: timeSpent, at: new Date().toISOString(), details: details || null });
     if (window.FirebaseSync && FirebaseSync.isReady()) {
-      FirebaseSync.pushModeResult(this.sessionId, { mode: this.currentMode, score, correct: this.modeCorrect, total: this.modeTotal, time_sec: timeSpent });
+      FirebaseSync.pushModeResult(this.sessionId, { mode: this.currentMode, score, correct: this.modeCorrect, total: this.modeTotal, time_sec: timeSpent, details: details || null });
     }
     if (!this.enabled || !this.sessionId) return;
     try {
@@ -490,7 +493,8 @@ const Tracker = {
           score: score,
           total_questions: this.modeTotal,
           correct_answers: this.modeCorrect,
-          time_spent_sec: timeSpent
+          time_spent_sec: timeSpent,
+          details: detailsStr
         })
       });
     } catch(e) {}

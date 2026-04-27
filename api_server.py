@@ -64,9 +64,10 @@ def init_db(db):
         is_correct BOOLEAN,
         time_taken_sec INTEGER DEFAULT 0,
         answered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        extras TEXT,
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     );
-    
+
     CREATE INDEX IF NOT EXISTS idx_sessions_nickname ON sessions(nickname);
     CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
     CREATE INDEX IF NOT EXISTS idx_mode_results_session ON mode_results(session_id);
@@ -75,6 +76,16 @@ def init_db(db):
     CREATE INDEX IF NOT EXISTS idx_question_responses_question ON question_responses(question_id);
     """)
     db.commit()
+    _ensure_column(db, "mode_results", "details", "TEXT")
+    _ensure_column(db, "question_responses", "extras", "TEXT")
+
+
+def _ensure_column(db, table: str, column: str, decl: str):
+    """Backward-compatible startup migration: add column if missing."""
+    cols = {row[1] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in cols:
+        db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+        db.commit()
 
 db = get_db()
 init_db(db)
@@ -125,6 +136,7 @@ class QuestionResponse(BaseModel):
     selected_answer: str
     is_correct: bool
     time_taken_sec: int = 0
+    extras: Optional[str] = None
 
 class SessionEnd(BaseModel):
     session_id: str
@@ -168,8 +180,8 @@ def save_mode_result(data: ModeResult):
 @app.post("/api/question/response")
 def save_question_response(data: QuestionResponse):
     db.execute(
-        "INSERT INTO question_responses (session_id, mode, question_id, selected_answer, is_correct, time_taken_sec) VALUES (?, ?, ?, ?, ?, ?)",
-        [data.session_id, data.mode, data.question_id, data.selected_answer, data.is_correct, data.time_taken_sec]
+        "INSERT INTO question_responses (session_id, mode, question_id, selected_answer, is_correct, time_taken_sec, extras) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [data.session_id, data.mode, data.question_id, data.selected_answer, data.is_correct, data.time_taken_sec, data.extras]
     )
     db.commit()
     return {"status": "saved"}
@@ -327,6 +339,57 @@ def admin_question_analytics(request: Request, mode: str = ""):
         """).fetchall()
     
     return {"questions": [dict(r) for r in rows]}
+
+@app.get("/api/admin/mode/{mode}/details")
+def admin_mode_details(mode: str, request: Request, limit: int = 500):
+    """Return persisted mode_results.details + question_responses.extras for a mode.
+
+    Used for analysing structured AAR / per-step payloads (e.g. crossBorderCbrne).
+    """
+    require_admin(request)
+    mr_rows = db.execute(
+        "SELECT id, session_id, mode, score, total_questions, correct_answers, "
+        "time_spent_sec, completed_at, details FROM mode_results "
+        "WHERE mode=? AND details IS NOT NULL AND details != '' "
+        "ORDER BY completed_at DESC LIMIT ?",
+        [mode, limit]
+    ).fetchall()
+    qr_rows = db.execute(
+        "SELECT id, session_id, mode, question_id, selected_answer, is_correct, "
+        "time_taken_sec, answered_at, extras FROM question_responses "
+        "WHERE mode=? AND extras IS NOT NULL AND extras != '' "
+        "ORDER BY answered_at DESC LIMIT ?",
+        [mode, limit]
+    ).fetchall()
+
+    def _parse(payload):
+        if payload is None:
+            return None
+        try:
+            return json.loads(payload)
+        except Exception:
+            return payload
+
+    mode_results_out = []
+    for r in mr_rows:
+        d = dict(r)
+        d["details_json"] = _parse(d.get("details"))
+        mode_results_out.append(d)
+
+    question_responses_out = []
+    for r in qr_rows:
+        d = dict(r)
+        d["extras_json"] = _parse(d.get("extras"))
+        question_responses_out.append(d)
+
+    return {
+        "mode": mode,
+        "n_mode_results": len(mode_results_out),
+        "n_question_responses": len(question_responses_out),
+        "mode_results": mode_results_out,
+        "question_responses": question_responses_out
+    }
+
 
 @app.get("/api/admin/export/csv")
 def admin_export_csv(request: Request):
@@ -1230,7 +1293,8 @@ def research_export(request: Request):
             ],
             "question_responses": [
                 "id", "session_id", "mode", "question_id", "selected_answer",
-                "is_correct", "is_correct_int", "time_taken_sec", "answered_at"
+                "is_correct", "is_correct_int", "time_taken_sec", "answered_at",
+                "extras"
             ]
         },
         "data": {

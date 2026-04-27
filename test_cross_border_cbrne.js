@@ -57,8 +57,13 @@ function loadInSandbox(scriptPath) {
   };
   sandbox.Tracker = {
     sessionId: 'TEST',
-    startMode() {}, endMode() {}, startQuestion() {}, recordAnswer() {}
+    startMode() {},
+    endMode(score, details) { captured.trackerEndMode.push({ score: score, details: details }); },
+    startQuestion() {},
+    recordAnswer(qid, sel, correct, extras) { captured.trackerAnswers.push({ qid: qid, selected: sel, correct: correct, extras: extras }); }
   };
+  captured.trackerAnswers = [];
+  captured.trackerEndMode = [];
   // Stubs for game functions called by cross_border_cbrne but not exercised here.
   sandbox.render = function() {};
   sandbox.enterMode = function() {};
@@ -234,9 +239,115 @@ function main() {
     process.exit(1);
   }
 
+  // 14. Tracker.recordAnswer now receives a 4th argument `extras` carrying the
+  //     structured per-question payload (stepId/construct/phase/role/etc.).
+  //     Verify by simulating answerCBCB via the exposed handler.
+  if (typeof M._answerCBCB === 'function') {
+    var randomized = M._buildRandomizedSteps();
+    var firstChoiceIdx = randomized.findIndex(function(s){ return s.type === 'choice'; });
+    if (firstChoiceIdx >= 0) {
+      sandbox.G.cbcbState = {
+        stepIdx: firstChoiceIdx,
+        stepStartMs: Date.now() - 4000,
+        runStartMs: Date.now() - 8000,
+        results: [],
+        steps: randomized,
+        answered: false,
+        selected: -1,
+        cbcbTimer: 0
+      };
+      sandbox.G.cbcbTimer = 0;
+      try { M._answerCBCB(0); } catch(e) { /* render stubs may throw downstream */ }
+      var lastAnswer = captured.trackerAnswers[captured.trackerAnswers.length - 1];
+      if (!lastAnswer || !lastAnswer.extras) {
+        console.error('FAIL: Tracker.recordAnswer was not called with extras payload');
+        process.exit(1);
+      }
+      var requiredExtraKeys = [
+        'stepId', 'stepIndex', 'construct', 'phase', 'role',
+        'correctOptionId', 'selectedOptionId', 'selectedDisplayIndex',
+        'displayedOptionOrder', 'responseTimeSec', 'modeName', 'language'
+      ];
+      for (var k = 0; k < requiredExtraKeys.length; k++) {
+        if (!(requiredExtraKeys[k] in lastAnswer.extras)) {
+          console.error('FAIL: extras missing key', requiredExtraKeys[k]);
+          process.exit(1);
+        }
+      }
+      if (lastAnswer.extras.modeName !== 'Cross-Border CBRNe Drill') {
+        console.error('FAIL: extras.modeName drift:', lastAnswer.extras.modeName);
+        process.exit(1);
+      }
+    }
+  }
+
+  // 15. Tracker.endMode receives details (the AAR payload) as second argument.
+  if (typeof M._showAAR === 'function') {
+    captured.trackerEndMode.length = 0;
+    sandbox.G.cbcbState = { runStartMs: Date.now() - 1000, results: [] };
+    try { M._showAAR(); } catch(e) { /* render stubs may throw downstream */ }
+    var lastEnd = captured.trackerEndMode[captured.trackerEndMode.length - 1];
+    if (!lastEnd || !lastEnd.details) {
+      console.error('FAIL: Tracker.endMode was not called with details payload');
+      process.exit(1);
+    }
+    var requiredDetailKeys = ['mode', 'modeLabel', 'language', 'accuracyPct', 'targets', 'structuredResults', 'completedAt'];
+    for (var j = 0; j < requiredDetailKeys.length; j++) {
+      if (!(requiredDetailKeys[j] in lastEnd.details)) {
+        console.error('FAIL: endMode details missing key', requiredDetailKeys[j]);
+        process.exit(1);
+      }
+    }
+  }
+
+  // 16. Backend (api_server.py) has the persistence wiring required.
+  var backendPath = path.join(__dirname, 'api_server.py');
+  if (fs.existsSync(backendPath)) {
+    var backend = fs.readFileSync(backendPath, 'utf8');
+    if (!/_ensure_column\(db,\s*"mode_results",\s*"details"/.test(backend)) {
+      console.error('FAIL: api_server.py missing safe migration for mode_results.details');
+      process.exit(1);
+    }
+    if (!/_ensure_column\(db,\s*"question_responses",\s*"extras"/.test(backend)) {
+      console.error('FAIL: api_server.py missing safe migration for question_responses.extras');
+      process.exit(1);
+    }
+    if (!/INSERT INTO question_responses[\s\S]*extras/i.test(backend)) {
+      console.error('FAIL: api_server.py question/response insert does not include extras');
+      process.exit(1);
+    }
+    if (!/extras:\s*Optional\[str\]/.test(backend)) {
+      console.error('FAIL: QuestionResponse pydantic model missing optional extras field');
+      process.exit(1);
+    }
+    if (!/admin\/mode\/\{mode\}\/details/.test(backend)) {
+      console.error('FAIL: api_server.py missing admin mode details endpoint');
+      process.exit(1);
+    }
+  }
+
+  // 17. app.js Tracker.recordAnswer signature accepts extras and forwards it.
+  var appJsContent = fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8');
+  if (!/recordAnswer\(questionId,\s*selectedAnswer,\s*isCorrect,\s*extras\)/.test(appJsContent)) {
+    console.error('FAIL: Tracker.recordAnswer signature does not accept extras');
+    process.exit(1);
+  }
+  if (!/endMode\(score,\s*details\)/.test(appJsContent)) {
+    console.error('FAIL: Tracker.endMode signature does not accept details');
+    process.exit(1);
+  }
+  if (!/extras:\s*extrasStr/.test(appJsContent)) {
+    console.error('FAIL: Tracker.recordAnswer does not forward extras to backend');
+    process.exit(1);
+  }
+  if (!/details:\s*detailsStr/.test(appJsContent)) {
+    console.error('FAIL: Tracker.endMode does not forward details to backend');
+    process.exit(1);
+  }
+
   console.log('\n✅ ALL TESTS PASSED');
   console.log('   built-in self-test checks:', result.pass);
-  console.log('   harness checks: 12');
+  console.log('   harness checks: 17');
   process.exit(0);
 }
 
