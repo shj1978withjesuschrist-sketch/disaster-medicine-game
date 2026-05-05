@@ -494,8 +494,24 @@ const Tracker = {
         })
       });
     } catch(e) {}
+    // Phase B: 3개 이상 모드 완료 시 Post-test 자동 트리거
+    try { maybeTriggerPostTest(); } catch(e) {}
   }
 };
+
+// Phase B: Post-test 자동 트리거 관리
+function maybeTriggerPostTest() {
+  if (!window.Assessment) return;
+  if (localStorage.getItem('posttest_result')) return; // 이미 응시
+  if (!localStorage.getItem('pretest_result')) return; // pre 없으면 차이 계산 불가
+  const completed = (window.G && G.modesCompleted) ? G.modesCompleted.size : 0;
+  if (completed >= 3) {
+    setTimeout(function () {
+      window.Assessment.triggerPostFlow();
+    }, 1200);
+  }
+}
+window.maybeTriggerPostTest = maybeTriggerPostTest;
 
 // ---- GAME STATE ----
 const G = {
@@ -1822,6 +1838,15 @@ function startGame() {
   G.nickname = nick;
   const rawTeam = (document.getElementById('team-select') || {}).value || '';
   G.team = sanitizeUserText(rawTeam, 30);
+  // Phase B: Pre-test 강제 응시 (이미 응시한 경우 건너뜀)
+  if (window.Assessment && !window.Assessment.hasPreTest()) {
+    window.Assessment.showPreTest(function () { _continueStartGame(); });
+    return;
+  }
+  _continueStartGame();
+}
+
+function _continueStartGame() {
   G.score = 0;
   G.xp = 0;
   G.level = 1;
