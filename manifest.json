@@ -1,0 +1,43 @@
+{
+  "name": "재난의학 서바이벌 — Disaster Medicine Survival",
+  "short_name": "재난의학",
+  "description": "QR 접속 인터랙티브 재난의학 교육 게임. START 트리아지, MCI 지휘, CBRNE 대응, HSEEP 훈련.",
+  "start_url": "./index.html?utm_source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0c10",
+  "theme_color": "#1e3a8a",
+  "lang": "ko-KR",
+  "dir": "ltr",
+  "categories": ["education", "medical", "games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "트리아지 모드",
+      "short_name": "트리아지",
+      "url": "./?mode=triage",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "보스 라운드",
+      "short_name": "보스",
+      "url": "./?mode=boss",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icons/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ]
+}

@@ -1,0 +1,275 @@
+/* =====================================================================
+   Phase C — Accessibility & Mobile-first overlay stylesheet
+   - Skip link, focus rings, larger tap targets
+   - CVD (colorblind) palette toggle
+   - High-contrast mode
+   - Reduced motion
+   - Mobile breakpoints (480 / 768 / 1024)
+   - PWA standalone tweaks
+   ===================================================================== */
+
+/* ---------- Skip link ---------- */
+.a11y-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100000;
+  background: #1e3a8a;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 0 0 8px 0;
+  font-weight: 700;
+  text-decoration: none;
+}
+.a11y-skip:focus {
+  left: 0;
+  outline: 3px solid #60a5fa;
+}
+
+/* ---------- A11y FAB (floating action button) ---------- */
+.a11y-fab {
+  position: fixed;
+  right: 14px;
+  top: 14px;
+  z-index: 99998;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(30, 58, 138, 0.92);
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  transition: transform .2s, background .2s;
+}
+.a11y-fab:hover, .a11y-fab:focus-visible {
+  background: #3b82f6;
+  transform: scale(1.06);
+  outline: 3px solid #60a5fa;
+}
+.a11y-panel {
+  position: fixed;
+  right: 14px;
+  top: 66px;
+  z-index: 99998;
+  background: #0f1729;
+  border: 1px solid #2a3653;
+  color: #e6edf7;
+  padding: 16px 18px;
+  border-radius: 12px;
+  width: min(280px, 90vw);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.a11y-panel .a11y-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: .92rem;
+}
+.a11y-panel input[type=checkbox] {
+  accent-color: #3b82f6;
+  width: 18px;
+  height: 18px;
+}
+
+/* ---------- Universal focus ring (keyboard only) ---------- */
+:focus-visible {
+  outline: 3px solid #60a5fa !important;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.5);
+}
+
+/* ---------- Tap target minimum 44x44 (WCAG 2.5.5) ---------- */
+button, [role="button"], a.btn, .btn, .mode-card {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ---------- Larger text mode ---------- */
+html.a11y-large {
+  font-size: 18px; /* default 16px → 18px = +12.5% */
+}
+html.a11y-large body {
+  line-height: 1.6;
+}
+
+/* ---------- High contrast mode ---------- */
+html.a11y-contrast body {
+  background: #000 !important;
+  color: #fff !important;
+}
+html.a11y-contrast button,
+html.a11y-contrast [role="button"] {
+  background: #fff !important;
+  color: #000 !important;
+  border: 2px solid #fff !important;
+  font-weight: 700;
+}
+html.a11y-contrast a { color: #ffd700 !important; text-decoration: underline !important; }
+html.a11y-contrast input,
+html.a11y-contrast select,
+html.a11y-contrast textarea {
+  background: #000 !important;
+  color: #fff !important;
+  border: 2px solid #fff !important;
+}
+
+/* ---------- Reduced motion ---------- */
+html.a11y-no-motion *,
+html.a11y-no-motion *::before,
+html.a11y-no-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- CVD (Colorblind) — Okabe-Ito + 패턴 ---------- */
+/*
+  Okabe-Ito palette (Wong 2011 Nature Methods):
+  red   → #D55E00 (vermillion)
+  yellow→ #F0E442
+  green → #009E73 (bluish green)
+  blue  → #0072B2
+  black → #000000
+*/
+html.a11y-cvd .triage-red, html.a11y-cvd [class*="tag-red"],
+html.a11y-cvd .triage-immediate {
+  background-color: #D55E00 !important;
+  background-image: repeating-linear-gradient(
+    45deg, transparent 0 6px, rgba(255,255,255,.25) 6px 12px) !important;
+  color: #fff !important;
+}
+html.a11y-cvd .triage-yellow, html.a11y-cvd [class*="tag-yellow"],
+html.a11y-cvd .triage-delayed {
+  background-color: #F0E442 !important;
+  background-image: repeating-linear-gradient(
+    -45deg, transparent 0 6px, rgba(0,0,0,.18) 6px 12px) !important;
+  color: #000 !important;
+}
+html.a11y-cvd .triage-green, html.a11y-cvd [class*="tag-green"],
+html.a11y-cvd .triage-minor {
+  background-color: #009E73 !important;
+  background-image: repeating-linear-gradient(
+    90deg, transparent 0 6px, rgba(255,255,255,.25) 6px 12px) !important;
+  color: #fff !important;
+}
+html.a11y-cvd .triage-black, html.a11y-cvd [class*="tag-black"],
+html.a11y-cvd .triage-deceased {
+  background-color: #1a1a1a !important;
+  background-image: repeating-linear-gradient(
+    0deg, transparent 0 4px, rgba(255,255,255,.45) 4px 8px) !important;
+  color: #fff !important;
+}
+/* CVD 모드 시 트리아지 카드에 텍스트 prefix 추가 */
+html.a11y-cvd .triage-red::before { content: "🔴 R · "; font-weight: 700; }
+html.a11y-cvd .triage-yellow::before { content: "🔶 Y · "; font-weight: 700; }
+html.a11y-cvd .triage-green::before { content: "🟢 G · "; font-weight: 700; }
+html.a11y-cvd .triage-black::before { content: "⬛ B · "; font-weight: 700; }
+
+/* ---------- Mobile breakpoints ---------- */
+/* < 480px (phones) */
+@media (max-width: 480px) {
+  body {
+    font-size: 14px;
+    -webkit-text-size-adjust: 100%;
+  }
+  #app {
+    padding: 8px !important;
+  }
+  .game-hud {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    font-size: 0.85rem;
+  }
+  .mode-card {
+    width: 100% !important;
+    margin: 6px 0 !important;
+    padding: 14px !important;
+  }
+  .mode-card h3 {
+    font-size: 1.05rem !important;
+  }
+  button, .btn, [role="button"] {
+    min-height: 48px !important;
+    font-size: 0.95rem !important;
+    padding: 12px 16px !important;
+  }
+  h1 { font-size: 1.4rem !important; }
+  h2 { font-size: 1.15rem !important; }
+  h3 { font-size: 1rem !important; }
+  /* QR code 영역 모바일 축소 */
+  [id*="qr"], .qr-section { transform: scale(0.85); transform-origin: top center; }
+  /* 사이드바/패널 풀스크린 */
+  .sidebar, .panel, .modal { width: 100% !important; max-width: 100% !important; }
+  .a11y-fab { right: 8px; top: 8px; width: 40px; height: 40px; font-size: 1.2rem; }
+}
+
+/* 481-768px (large phones / small tablets) */
+@media (min-width: 481px) and (max-width: 768px) {
+  #app { padding: 14px !important; }
+  .mode-card { width: calc(50% - 12px) !important; }
+  button, .btn, [role="button"] { min-height: 46px; }
+}
+
+/* 769-1024px (tablets) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .mode-card { width: calc(33.33% - 12px) !important; }
+}
+
+/* ---------- Touch device specific ---------- */
+@media (hover: none) and (pointer: coarse) {
+  button, .btn, [role="button"], .mode-card {
+    min-height: 48px !important;
+  }
+  /* iOS 더블탭 줌 방지 */
+  button, .btn, [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+/* ---------- Landscape phones ---------- */
+@media (max-height: 480px) and (orientation: landscape) {
+  #app { padding: 6px !important; }
+  .game-hud { font-size: 0.78rem !important; }
+}
+
+/* ---------- PWA standalone ---------- */
+@media (display-mode: standalone) {
+  body {
+    /* iOS notch */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .a11y-fab {
+    top: calc(14px + env(safe-area-inset-top));
+  }
+}
+
+/* ---------- Screen reader only ---------- */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
