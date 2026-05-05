@@ -1310,6 +1310,11 @@ input {
   transition: all var(--transition);
   opacity: 0.35;
   pointer-events: none;
+  /* Phase F: 모바일·작은 화면에서도 항상 보이도록 sticky 적용 */
+  position: sticky;
+  bottom: 8px;
+  z-index: 5;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
 }
 
 .go-btn.ready { opacity: 1; pointer-events: auto; }
