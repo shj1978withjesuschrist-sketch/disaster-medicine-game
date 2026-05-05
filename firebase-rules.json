@@ -1,0 +1,83 @@
+{
+  "rules": {
+    "live": {
+      "$version": {
+        ".validate": "$version === 'kr' || $version === 'en'",
+
+        "students": {
+          ".read": true,
+          ".indexOn": ["score", "level", "updated_at"],
+
+          "$sid": {
+            ".write": "newData.exists() && newData.hasChild('nickname') && newData.child('nickname').isString() && newData.child('nickname').val().length <= 30",
+            ".validate": "newData.hasChildren(['nickname'])",
+
+            "nickname":          { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30" },
+            "team":              { ".validate": "newData.isString() || newData.val() == null" },
+            "score":             { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
+            "level":             { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 99" },
+            "streak":            { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000" },
+            "modes_completed":   { ".validate": "true" },
+            "current_mode":      { ".validate": "newData.isString() || newData.val() == null" },
+            "current_progress":  { ".validate": "true" },
+            "device":            { ".validate": "newData.isString() && newData.val().length <= 32" },
+            "updated_at":        { ".validate": "newData.isNumber() || newData.val() == null" },
+            "started_at":        { ".validate": "newData.isString() && newData.val().length <= 40" },
+
+            "$other": { ".validate": false }
+          }
+        },
+
+        "mode_results": {
+          ".read": true,
+          "$sid": {
+            ".write": "true",
+            "$pushid": {
+              ".validate": "newData.hasChildren(['mode', 'score', 'at'])",
+              "mode":    { ".validate": "newData.isString() && newData.val().length <= 32" },
+              "score":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+              "correct": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+              "total":   { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000" },
+              "time_sec":{ ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 86400" },
+              "at":      { ".validate": "newData.isString() && newData.val().length <= 40" },
+              "$other":  { ".validate": false }
+            }
+          }
+        },
+
+        "answers": {
+          ".read": true,
+          "$sid": {
+            ".write": "true",
+            "$pushid": {
+              ".validate": "newData.hasChildren(['mode', 'question_id'])",
+              "mode":         { ".validate": "newData.isString() && newData.val().length <= 32" },
+              "question_id":  { ".validate": "newData.isString() && newData.val().length <= 64" },
+              "selected":     { ".validate": "newData.isString() && newData.val().length <= 256" },
+              "correct":      { ".validate": "newData.isBoolean()" },
+              "time_sec":     { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 86400" },
+              "at":           { ".validate": "newData.isString() && newData.val().length <= 40" },
+              "$other":       { ".validate": false }
+            }
+          }
+        }
+      }
+    },
+
+    "config": {
+      "$version": {
+        ".validate": "$version === 'kr' || $version === 'en'",
+        "teams": {
+          ".read": true,
+          ".write": false,
+          "_writableViaServer": { ".validate": "false" }
+        }
+      }
+    },
+
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

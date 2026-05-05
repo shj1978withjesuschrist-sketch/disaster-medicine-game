@@ -1106,14 +1106,35 @@ function renderInlineAdmin() {
     const loginBtn = document.createElement('button');
     loginBtn.textContent = '로그인';
     loginBtn.style.cssText = 'width:100%;padding:12px;border-radius:8px;border:none;background:#7c3aed;color:#fff;font-size:15px;font-weight:bold;cursor:pointer;';
-    function tryLogin() {
-      if (pwInput.value === 'disaster2026!') {
-        adminLoggedIn = true;
-        renderOverlay();
-      } else {
+    async function tryLogin() {
+      const pw = pwInput.value;
+      if (!pw) return;
+      loginBtn.disabled = true;
+      loginBtn.textContent = '인증 중...';
+      try {
+        const res = await fetch(`${TRACKING_API}/api/admin/login`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ password: pw })
+        });
+        if (!res.ok) throw new Error('auth_failed');
+        const data = await res.json();
+        if (data && data.token) {
+          window.__adminToken = data.token;
+          window.__adminTokenExp = Date.now() + 60*60*1000; // 1h
+          adminLoggedIn = true;
+          renderOverlay();
+          return;
+        }
+        throw new Error('no_token');
+      } catch(e) {
+        errMsg.textContent = '비밀번호가 맞지 않거나 서버 응답이 없습니다.';
         errMsg.style.display = 'block';
         pwInput.value = '';
         pwInput.focus();
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = '로그인';
       }
     }
     loginBtn.addEventListener('click', tryLogin);
@@ -1610,6 +1631,40 @@ function renderInlineAdmin() {
   renderOverlay();
 }
 
+// ---- PRIVACY POLICY MODAL ----
+function showPrivacyModal() {
+  const existing = document.getElementById('privacy-modal');
+  if (existing) { existing.remove(); return; }
+  const modal = document.createElement('div');
+  modal.id = 'privacy-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(8,10,18,0.86);z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(6px);';
+  const inner = document.createElement('div');
+  inner.style.cssText = 'max-width:640px;max-height:80vh;overflow-y:auto;background:#11141d;border:1px solid #2a3050;border-radius:14px;padding:28px;color:#cdd1dc;font-size:0.86rem;line-height:1.65;';
+  inner.innerHTML = `
+    <h2 style="margin:0 0 14px;color:#7fb0ff;font-size:1.15rem;">개인정보처리방침 (요약)</h2>
+    <p><strong>운영자:</strong> 신재난의학 아카데미 유한책임회사 (교육 운영: 순천향대학교 재난의학센터)</p>
+    <p><strong>수집 항목:</strong></p>
+    <ul style="margin:6px 0 12px;padding-left:18px;">
+      <li>닉네임 (익명, 최대 30자)</li>
+      <li>선택한 팀명, 클래스, 장치 유형 (PC/모바일)</li>
+      <li>학습 진도: 모드별 점수·답변 정답·소요 시간</li>
+      <li>세션 시작·종료 시각</li>
+    </ul>
+    <p><strong>이용 목적:</strong> 교육 성과 집계, 교육자 피드백, 콘텐츠 개선</p>
+    <p><strong>보관 기간:</strong> 최대 2년 (이후 자동 익명화 또는 삭제)</p>
+    <p><strong>제3자 제공:</strong> 제공하지 않으며, Firebase Realtime Database (Google Cloud, EU/US)·Render.com 호스팅만 이용.</p>
+    <p><strong>이용자 권리:</strong> 자신의 세션 열람·정정·삭제·처리정지 요청 권리. shj1978withjesuschrist@gmail.com으로 언제든 요청 가능.</p>
+    <p><strong>주의:</strong> 닉네임에 실명·주민등록번호·이메일·전화번호·면허번호 등 개인 식별 정보를 입력하지 마세요.</p>
+    <p style="margin-top:18px;color:#9aa3b8;">GDPR Art.13 · 대한민국 개인정보보호법(PIPA) 준수</p>
+    <button id="privacy-close" style="margin-top:18px;padding:10px 22px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:0.92rem;font-weight:600;cursor:pointer;">닫기</button>
+  `;
+  modal.appendChild(inner);
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+  document.getElementById('privacy-close').addEventListener('click', () => modal.remove());
+}
+window.showPrivacyModal = showPrivacyModal;
+
 // ---- INTRO ----
 function renderIntro() {
   const deployUrl = window.location.href;
@@ -1650,6 +1705,17 @@ function renderIntro() {
       <div class="admin-link-wrap">
         <button class="admin-link-btn" id="admin-link-btn">🔐 관리자</button>
       </div>
+      <div class="disclaimer-box" style="max-width:520px;margin:18px auto 0;padding:14px 16px;background:rgba(255,80,80,0.06);border:1px solid rgba(255,80,80,0.25);border-radius:10px;color:#cdd1dc;font-size:0.78rem;line-height:1.5;text-align:left;">
+        <strong style="color:#ff7a8a;">⚠️ 교육·훈련 목적 전용</strong><br>
+        본 시뮬레이션은 교육 및 훈련 목적으로만 사용되며, 의료 진단·치료 의사 결정 도구가 아닙니다. 실제 환자 진료는 반드시 임상 가이드라인과 의료진의 판단을 따라야 합니다.<br>
+        <span style="color:#9aa3b8;">For educational and training purposes only — not a medical device.</span>
+      </div>
+      <div class="privacy-box" style="max-width:520px;margin:10px auto 0;padding:12px 16px;background:rgba(80,140,255,0.06);border:1px solid rgba(80,140,255,0.25);border-radius:10px;color:#cdd1dc;font-size:0.78rem;line-height:1.5;text-align:left;">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="consent-check" style="margin-top:3px;"/>
+          <span>학습 진도·답변 데이터가 익명으로 기록·저장되는 데 동의합니다 (실명·이메일 등 개인 식별 정보는 닉네임에 입력하지 마세요). <a href="#" id="privacy-link" style="color:#7fb0ff;">개인정보처리방침 보기</a></span>
+        </label>
+      </div>
       <div class="game-footer-credit">
         <p>© 2026 신재난의학 아카데미 유한책임회사. All rights reserved.</p>
         <p>교육 운영: 순천향대학교 재난의학센터</p>
@@ -1675,16 +1741,49 @@ function renderIntro() {
     }
   } catch (e) {}
 
+  // Privacy modal handler
+  const privacyLink = document.getElementById('privacy-link');
+  if (privacyLink) {
+    privacyLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showPrivacyModal();
+    });
+  }
+
   // Nick input
   const nickInput = $('nick');
   const enterBtn = $('enter-btn');
-  nickInput.addEventListener('input', () => {
-    enterBtn.disabled = nickInput.value.trim().length < 1;
-  });
+  const consentCheck = document.getElementById('consent-check');
+
+  function refreshEnterBtn() {
+    const hasNick = nickInput.value.trim().length >= 1;
+    const hasConsent = !consentCheck || consentCheck.checked;
+    enterBtn.disabled = !(hasNick && hasConsent);
+  }
+  nickInput.addEventListener('input', refreshEnterBtn);
+  if (consentCheck) consentCheck.addEventListener('change', refreshEnterBtn);
+
+  function tryStart() {
+    if (!nickInput.value.trim()) return;
+    if (consentCheck && !consentCheck.checked) {
+      const box = document.querySelector('.privacy-box');
+      if (box) {
+        box.style.borderColor = '#ff5577';
+        box.style.background = 'rgba(255,80,120,0.12)';
+        setTimeout(() => {
+          box.style.borderColor = '';
+          box.style.background = '';
+        }, 1200);
+      }
+      return;
+    }
+    startGame();
+  }
   nickInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && nickInput.value.trim()) startGame();
+    if (e.key === 'Enter') tryStart();
   });
-  enterBtn.addEventListener('click', startGame);
+  enterBtn.addEventListener('click', tryStart);
 
   // Admin dashboard link — inline admin overlay
   $('admin-link-btn').addEventListener('click', () => {
@@ -1695,11 +1794,34 @@ function renderIntro() {
   spawnParticles();
 }
 
+// ---- INPUT SANITIZATION (XSS prevention) ----
+// Strip HTML tags and dangerous chars from user-controlled strings
+// before they enter game state where they get inserted via innerHTML.
+function sanitizeUserText(s, maxLen) {
+  if (s == null) return '';
+  let v = String(s);
+  // Remove all HTML angle brackets, ampersands, quotes, backticks
+  v = v.replace(/[<>]/g, '')
+       .replace(/&/g, '\u0026')
+       .replace(/"/g, '')
+       .replace(/'/g, '')
+       .replace(/`/g, '')
+       // Strip control chars and zero-width
+       .replace(/[\x00-\x1F\x7F\u200B-\u200F\u2028-\u202F\uFEFF]/g, '')
+       // Block javascript: / data: URI prefixes
+       .replace(/(javascript|data|vbscript)\s*:/gi, '');
+  v = v.trim();
+  return v.slice(0, maxLen || 30);
+}
+window.sanitizeUserText = sanitizeUserText;
+
 function startGame() {
-  const nick = $('nick').value.trim();
+  const rawNick = $('nick').value.trim();
+  const nick = sanitizeUserText(rawNick, 30);
   if (!nick) return;
   G.nickname = nick;
-  G.team = (document.getElementById('team-select') || {}).value || '';
+  const rawTeam = (document.getElementById('team-select') || {}).value || '';
+  G.team = sanitizeUserText(rawTeam, 30);
   G.score = 0;
   G.xp = 0;
   G.level = 1;
