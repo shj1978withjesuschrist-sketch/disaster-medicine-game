@@ -3,7 +3,15 @@
   "version": "2026.05.05",
   "description": "재난의학 서바이벌 - Interactive disaster medicine training (Korean)",
   "main": "index.html",
+  "type": "module",
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src tests --ext .js",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\"",
+    "typecheck": "tsc --noEmit",
     "cap:add:android": "npx cap add android",
     "cap:add:ios": "npx cap add ios",
     "cap:sync": "npx cap sync",
@@ -16,7 +24,12 @@
   "author": "Soonchunhyang University Disaster Medicine Center",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@capacitor/cli": "^6.1.2"
+    "@capacitor/cli": "^6.1.2",
+    "@vitest/coverage-v8": "^1.6.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4",
+    "vitest": "^1.6.0"
   },
   "dependencies": {
     "@capacitor/core": "^6.1.2",

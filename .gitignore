@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+dist/
+.vitest/
+*.log
+.DS_Store
+android/
+ios/
+.env
+.env.local
