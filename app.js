@@ -1914,6 +1914,26 @@ function sanitizeUserText(s, maxLen) {
 }
 window.sanitizeUserText = sanitizeUserText;
 
+// Phase F2: 닉네임당 1회 사전평가 통과 기록 (localStorage 기반).
+function hasCompletedPreTestForNick(nick) {
+  try {
+    const raw = localStorage.getItem('surge_pretest_completed_v1');
+    if (!raw) return false;
+    const map = JSON.parse(raw);
+    return !!(map && map[nick]);
+  } catch(e) { return false; }
+}
+function markPreTestCompletedForNick(nick) {
+  try {
+    const raw = localStorage.getItem('surge_pretest_completed_v1');
+    const map = raw ? JSON.parse(raw) : {};
+    map[nick] = { completedAt: Date.now() };
+    localStorage.setItem('surge_pretest_completed_v1', JSON.stringify(map));
+  } catch(e) {}
+}
+window.hasCompletedPreTestForNick = hasCompletedPreTestForNick;
+window.markPreTestCompletedForNick = markPreTestCompletedForNick;
+
 function startGame() {
   const rawNick = $('nick').value.trim();
   const nick = sanitizeUserText(rawNick, 30);
@@ -1921,9 +1941,29 @@ function startGame() {
   G.nickname = nick;
   const rawTeam = (document.getElementById('team-select') || {}).value || '';
   G.team = sanitizeUserText(rawTeam, 30);
-  // Phase F: Pre-test를 옵션화 — 이미 응시했거나 사용자가 명시적으로 선택한 경우에만 진입.
-  // 첫 방문자는 게임을 먼저 체험하고, 메인 메뉴의 "📊 학습 효과 측정" 버튼으로 사전평가에 자발적으로 참여.
-  _continueStartGame();
+
+  // Phase F2: 사전평가는 닉네임당 1회 필수. 이미 완료된 닉네임이거나 Assessment 모듈이
+  // 이전 세션 기록을 보유한 경우 자동 통과. 그렇지 않으면 사전평가 후 게임 진행.
+  const alreadyDone = hasCompletedPreTestForNick(nick)
+    || (window.Assessment && window.Assessment.hasPreTest && window.Assessment.hasPreTest());
+
+  if (alreadyDone) {
+    _continueStartGame();
+    return;
+  }
+
+  if (window.Assessment && window.Assessment.showPreTest) {
+    // 사전평가 안내 후 진입. 완료 콜백에서 닉네임 통과 기록 → 게임 진행.
+    alert('📊 학습효과 측정을 위해 게임 시작 전 사전평가가 한 번 필요합니다.\n(이 닉네임으로 한 번만 응시하면 다음부터는 자동 통과됩니다.)');
+    window.Assessment.showPreTest(function() {
+      markPreTestCompletedForNick(nick);
+      _continueStartGame();
+    });
+  } else {
+    // Assessment 모듈이 로드되지 않은 경우 안전하게 진행 (에러 방지).
+    console.warn('[SURGE] Assessment module not loaded — proceeding without pre-test.');
+    _continueStartGame();
+  }
 }
 
 function _continueStartGame() {
